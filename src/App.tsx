@@ -8,6 +8,7 @@ import Checklists from "./pages/Checklists";
 import WorkOrders from "./pages/WorkOrders";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import RunInspection from "./pages/RunInspection";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/work-orders" element={<WorkOrders />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/run-inspection" element={<RunInspection />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChecklistCard, Checklist } from "@/components/checklists/ChecklistCard";
+import { CreateTemplateModal, ChecklistTemplate } from "@/components/checklists/CreateTemplateModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Filter, Grid, List } from "lucide-react";
 
-const checklists: Checklist[] = [
+const initialChecklists: Checklist[] = [
   {
     id: "1",
     title: "Daily Safety Inspection",
@@ -63,23 +64,6 @@ const checklists: Checklist[] = [
     itemCount: 28,
     status: "draft",
   },
-  {
-    id: "7",
-    title: "IT Equipment Audit",
-    description: "Quarterly IT equipment inventory and condition assessment.",
-    category: "IT",
-    itemCount: 12,
-    lastUsed: "1 month ago",
-    status: "archived",
-  },
-  {
-    id: "8",
-    title: "New Employee Onboarding",
-    description: "Onboarding checklist for new employee orientation and training completion.",
-    category: "HR",
-    itemCount: 20,
-    status: "active",
-  },
 ];
 
 const categories = ["All", "Safety", "Maintenance", "Quality", "Fleet", "Hygiene", "IT", "HR"];
@@ -88,6 +72,8 @@ export default function Checklists() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [checklists, setChecklists] = useState<Checklist[]>(initialChecklists);
 
   const filteredChecklists = checklists.filter((checklist) => {
     const matchesSearch = checklist.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -95,6 +81,24 @@ export default function Checklists() {
     const matchesCategory = selectedCategory === "All" || checklist.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const handleSaveTemplate = (template: ChecklistTemplate) => {
+    const totalQuestions = template.sections.reduce(
+      (acc, s) => acc + s.questions.length,
+      0
+    );
+    
+    const newChecklist: Checklist = {
+      id: template.id,
+      title: template.title,
+      description: template.description,
+      category: template.category,
+      itemCount: totalQuestions,
+      status: "active",
+    };
+    
+    setChecklists((prev) => [newChecklist, ...prev]);
+  };
 
   return (
     <AppLayout title="Checklists">
@@ -130,7 +134,10 @@ export default function Checklists() {
                 <List className="w-4 h-4" />
               </button>
             </div>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button 
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={() => setIsCreateModalOpen(true)}
+            >
               <Plus className="w-4 h-4 mr-2" />
               Create Checklist
             </Button>
@@ -176,6 +183,13 @@ export default function Checklists() {
           </div>
         )}
       </div>
+
+      {/* Create Template Modal */}
+      <CreateTemplateModal
+        open={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSave={handleSaveTemplate}
+      />
     </AppLayout>
   );
 }

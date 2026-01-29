@@ -1,6 +1,7 @@
-import { ClipboardCheck, MoreVertical, Calendar, User } from "lucide-react";
+import { ClipboardCheck, MoreVertical, Calendar, User, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 export interface Checklist {
   id: string;
@@ -25,6 +26,13 @@ const statusStyles = {
 };
 
 export function ChecklistCard({ checklist, onClick }: ChecklistCardProps) {
+  const navigate = useNavigate();
+
+  const handleStartInspection = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate("/run-inspection");
+  };
+
   return (
     <div
       className="action-card group"
@@ -73,8 +81,18 @@ export function ChecklistCard({ checklist, onClick }: ChecklistCardProps) {
         )}
       </div>
 
-      <div className="mt-3 pt-3 border-t border-border">
+      <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
         <span className="text-xs font-medium text-accent">{checklist.category}</span>
+        {checklist.status === "active" && (
+          <Button
+            size="sm"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 h-8"
+            onClick={handleStartInspection}
+          >
+            <Play className="w-3.5 h-3.5 mr-1" />
+            Start
+          </Button>
+        )}
       </div>
     </div>
   );
