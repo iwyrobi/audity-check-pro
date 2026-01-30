@@ -8,6 +8,14 @@ import { Plus, Search, Grid, List, Loader2 } from "lucide-react";
 import { useChecklistTemplates, ChecklistTemplateDB } from "@/hooks/useChecklistTemplates";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useDepartments } from "@/hooks/useDepartments";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Checklists() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -15,9 +23,11 @@ export default function Checklists() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ChecklistTemplateDB | null>(null);
   const [copyingTemplate, setCopyingTemplate] = useState<ChecklistTemplateDB | null>(null);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("all");
   
   const { templates, loading, createTemplate, updateTemplate, deleteTemplate } = useChecklistTemplates();
   const { profile, department, isDepartmentHead, isAdmin } = useAuth();
+  const { departments } = useDepartments();
   const { toast } = useToast();
 
   const canCreateTemplates = isAdmin || isDepartmentHead;
@@ -26,6 +36,12 @@ export default function Checklists() {
     const matchesSearch = 
       template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (template.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+    
+    // Filter by department for admins
+    if (isAdmin && selectedDepartmentId !== "all") {
+      return matchesSearch && template.department_id === selectedDepartmentId;
+    }
+    
     return matchesSearch;
   });
 
@@ -150,12 +166,27 @@ export default function Checklists() {
           </div>
         </div>
 
-        {/* Department Info */}
-        {department && (
-          <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg text-sm">
-            Showing checklists for: <strong>{department.name}</strong>
-          </div>
-        )}
+        {/* Department Filter */}
+        <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg text-sm flex items-center gap-2">
+          <span>Showing checklists for:</span>
+          {isAdmin ? (
+            <Select value={selectedDepartmentId} onValueChange={setSelectedDepartmentId}>
+              <SelectTrigger className="w-[180px] h-8 bg-background">
+                <SelectValue placeholder="Select department" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover">
+                <SelectItem value="all">All Departments</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <strong>{department?.name || "No Department"}</strong>
+          )}
+        </div>
 
         {/* Not assigned to department warning */}
         {!profile?.department_id && (
