@@ -60,14 +60,7 @@ export default function Inspections() {
   };
 
   const handleView = (inspection: InspectionDB) => {
-    // For now, navigate to run inspection in view mode
-    navigate("/run-inspection", {
-      state: {
-        templateId: inspection.template_id,
-        templateName: inspection.title,
-        viewInspectionId: inspection.id,
-      },
-    });
+    navigate(`/inspections/${inspection.id}`);
   };
 
   const getScoreColor = (percentage: number | null) => {

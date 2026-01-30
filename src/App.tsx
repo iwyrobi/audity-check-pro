@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Checklists from "./pages/Checklists";
 import Inspections from "./pages/Inspections";
+import InspectionDetail from "./pages/InspectionDetail";
 import WorkOrders from "./pages/WorkOrders";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
@@ -92,6 +93,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <RunInspection />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inspections/:id"
+        element={
+          <ProtectedRoute>
+            <InspectionDetail />
           </ProtectedRoute>
         }
       />
