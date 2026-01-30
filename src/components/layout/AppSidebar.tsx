@@ -17,13 +17,13 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 
-const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Checklists", href: "/checklists", icon: ClipboardCheck },
-  { name: "Inspections", href: "/inspections", icon: ClipboardList },
-  { name: "Work Orders", href: "/work-orders", icon: Wrench },
-  { name: "Reports", href: "/reports", icon: FileText },
-  { name: "Settings", href: "/settings", icon: Settings },
+const baseNavigation = [
+  { name: "Dashboard", href: "/", icon: LayoutDashboard, roles: ["all"] },
+  { name: "Checklists", href: "/checklists", icon: ClipboardCheck, roles: ["super_admin", "admin", "user"] },
+  { name: "Inspections", href: "/inspections", icon: ClipboardList, roles: ["all"] },
+  { name: "Work Orders", href: "/work-orders", icon: Wrench, roles: ["all"] },
+  { name: "Reports", href: "/reports", icon: FileText, roles: ["all"] },
+  { name: "Settings", href: "/settings", icon: Settings, roles: ["super_admin"] },
 ];
 
 interface AppSidebarProps {
@@ -34,7 +34,18 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { department } = useAuth();
+  const { department, isSuperAdmin, isAdmin, isDepartmentHead, roles } = useAuth();
+
+  // Filter navigation based on user role
+  const userRole = roles.find((r) => r.role === "super_admin")?.role ||
+    roles.find((r) => r.role === "admin")?.role ||
+    roles.find((r) => r.role === "department_head")?.role ||
+    "user";
+
+  const navigation = baseNavigation.filter((item) => {
+    if (item.roles.includes("all")) return true;
+    return item.roles.includes(userRole);
+  });
 
   const handleNewInspection = () => {
     navigate("/checklists");

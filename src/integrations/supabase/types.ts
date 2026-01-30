@@ -482,6 +482,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_admin_or_super: { Args: { _user_id: string }; Returns: boolean }
       is_department_head: {
         Args: { _department_id: string; _user_id: string }
         Returns: boolean
@@ -490,6 +491,7 @@ export type Database = {
         Args: { _department_id: string; _user_id: string }
         Returns: boolean
       }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "department_head" | "user" | "super_admin"
