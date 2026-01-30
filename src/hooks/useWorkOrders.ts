@@ -41,14 +41,17 @@ export function useWorkOrders() {
 
       if (error) throw error;
 
-      // Fetch creator profiles
+      // Fetch creator names using security definer function (bypasses RLS)
       const creatorIds = [...new Set((data || []).map(wo => wo.created_by))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .in("user_id", creatorIds);
-
-      const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
+      const profileMap = new Map<string, string>();
+      
+      // Fetch each creator's name via RPC
+      await Promise.all(
+        creatorIds.map(async (userId) => {
+          const { data: name } = await supabase.rpc("get_profile_name", { _user_id: userId });
+          profileMap.set(userId, name || "Unknown");
+        })
+      );
 
       // Enrich work orders with creator names
       const enrichedData = (data || []).map(wo => ({
