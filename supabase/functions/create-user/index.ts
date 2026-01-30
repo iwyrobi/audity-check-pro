@@ -12,7 +12,7 @@ interface CreateUserRequest {
   password: string;
   full_name: string;
   department_id: string | null;
-  role: "admin" | "department_head" | "user";
+  role: "super_admin" | "admin" | "department_head" | "user";
 }
 
 serve(async (req: Request) => {
@@ -42,16 +42,16 @@ serve(async (req: Request) => {
       throw new Error("Unauthorized");
     }
 
-    // Check if requesting user is admin
+    // Check if requesting user is super_admin
     const { data: roles } = await userClient
       .from("user_roles")
       .select("role")
       .eq("user_id", requestingUser.id)
-      .eq("role", "admin")
+      .eq("role", "super_admin")
       .single();
 
     if (!roles) {
-      throw new Error("Only admins can create users");
+      throw new Error("Only super admins can create users");
     }
 
     // Parse request body

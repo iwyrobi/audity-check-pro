@@ -41,7 +41,7 @@ interface UserWithProfile {
 }
 
 export function UserManagement() {
-  const { isAdmin } = useAuth();
+  const { isSuperAdmin } = useAuth();
   const { departments } = useDepartments();
   const { toast } = useToast();
 
@@ -114,16 +114,23 @@ export function UserManagement() {
   };
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isSuperAdmin) {
       fetchUsers();
     }
-  }, [isAdmin]);
+  }, [isSuperAdmin]);
 
   const handleOpenEdit = (user: UserWithProfile) => {
     setEditingUser(user);
+    const primaryRole = user.roles.includes("super_admin") 
+      ? "super_admin" 
+      : user.roles.includes("admin") 
+        ? "admin" 
+        : user.roles.includes("department_head") 
+          ? "department_head" 
+          : "user";
     setFormData({
       department_id: user.department_id || "",
-      role: user.roles.includes("admin") ? "admin" : user.roles.includes("department_head") ? "department_head" : "user",
+      role: primaryRole,
     });
     setIsEditModalOpen(true);
   };
@@ -165,7 +172,7 @@ export function UserManagement() {
         .from("user_roles")
         .insert({
           user_id: editingUser.id,
-          role: formData.role as "admin" | "department_head" | "user",
+          role: formData.role as "super_admin" | "admin" | "department_head" | "user",
         });
 
       if (insertError) throw insertError;
@@ -250,19 +257,21 @@ export function UserManagement() {
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
-      case "admin":
+      case "super_admin":
         return "destructive";
-      case "department_head":
+      case "admin":
         return "default";
-      default:
+      case "department_head":
         return "secondary";
+      default:
+        return "outline";
     }
   };
 
-  if (!isAdmin) {
+  if (!isSuperAdmin) {
     return (
       <div className="p-6 text-center text-muted-foreground">
-        Only administrators can manage users.
+        Only super administrators can manage users.
       </div>
     );
   }
@@ -398,7 +407,8 @@ export function UserManagement() {
                 <SelectContent>
                   <SelectItem value="user">User</SelectItem>
                   <SelectItem value="department_head">Department Head</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="admin">Admin (Department)</SelectItem>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -489,7 +499,8 @@ export function UserManagement() {
                 <SelectContent>
                   <SelectItem value="user">User</SelectItem>
                   <SelectItem value="department_head">Department Head</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="admin">Admin (Department)</SelectItem>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>

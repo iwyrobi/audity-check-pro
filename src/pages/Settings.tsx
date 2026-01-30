@@ -46,7 +46,7 @@ const settingsSections = [
 ];
 
 export default function Settings() {
-  const { isAdmin } = useAuth();
+  const { isSuperAdmin } = useAuth();
 
   return (
     <AppLayout title="Settings">
@@ -54,8 +54,8 @@ export default function Settings() {
         <Tabs defaultValue="general" className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="general">General</TabsTrigger>
-            {isAdmin && <TabsTrigger value="users">Users & Roles</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="departments">Departments</TabsTrigger>}
+            {isSuperAdmin && <TabsTrigger value="users">Users & Roles</TabsTrigger>}
+            {isSuperAdmin && <TabsTrigger value="departments">Departments</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="general" className="space-y-6">
@@ -116,7 +116,7 @@ export default function Settings() {
             </div>
           </TabsContent>
 
-          {isAdmin && (
+          {isSuperAdmin && (
             <TabsContent value="users">
               <div className="stat-card">
                 <UserManagement />
@@ -124,7 +124,7 @@ export default function Settings() {
             </TabsContent>
           )}
 
-          {isAdmin && (
+          {isSuperAdmin && (
             <TabsContent value="departments">
               <div className="stat-card">
                 <DepartmentManagement />

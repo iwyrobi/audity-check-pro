@@ -12,7 +12,7 @@ interface Profile {
 }
 
 interface UserRole {
-  role: "admin" | "department_head" | "user";
+  role: "super_admin" | "admin" | "department_head" | "user";
 }
 
 interface Department {
@@ -31,6 +31,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string, departmentId: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  isSuperAdmin: boolean;
   isAdmin: boolean;
   isDepartmentHead: boolean;
 }
@@ -172,7 +173,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setDepartment(null);
   };
 
-  const isAdmin = roles.some((r) => r.role === "admin");
+  const isSuperAdmin = roles.some((r) => r.role === "super_admin");
+  const isAdmin = roles.some((r) => r.role === "admin" || r.role === "super_admin");
   const isDepartmentHead = roles.some((r) => r.role === "department_head");
 
   return (
@@ -187,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signIn,
         signOut,
+        isSuperAdmin,
         isAdmin,
         isDepartmentHead,
       }}

@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export function DepartmentManagement() {
   const { departments, loading, fetchDepartments } = useDepartments();
-  const { isAdmin } = useAuth();
+  const { isSuperAdmin } = useAuth();
   const { toast } = useToast();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -116,10 +116,10 @@ export function DepartmentManagement() {
     }
   };
 
-  if (!isAdmin) {
+  if (!isSuperAdmin) {
     return (
       <div className="p-6 text-center text-muted-foreground">
-        Only administrators can manage departments.
+        Only super administrators can manage departments.
       </div>
     );
   }
