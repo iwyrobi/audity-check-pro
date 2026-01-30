@@ -180,7 +180,7 @@ export default function Checklists() {
                   id: template.id,
                   title: template.name,
                   description: template.description || "",
-                  departmentName: department?.name,
+                  departmentName: template.department?.name || "No Department",
                   itemCount: getQuestionCount(template),
                   status: "active",
                 }}

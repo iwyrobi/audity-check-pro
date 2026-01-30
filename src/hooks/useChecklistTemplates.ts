@@ -12,6 +12,10 @@ export interface ChecklistTemplateDB {
   created_by: string | null;
   created_at: string;
   sections?: TemplateSectionDB[];
+  department?: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface TemplateSectionDB {
@@ -48,6 +52,7 @@ export function useChecklistTemplates() {
         .from("checklist_templates")
         .select(`
           *,
+          department:departments(id, name),
           sections:template_sections(
             *,
             questions:template_questions(*)
