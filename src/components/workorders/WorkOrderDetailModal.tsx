@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { X, Save, Wrench, Clock, MapPin, User, Building2, MessageSquare, Send, Camera, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Save, Wrench, Clock, MapPin, Building2, MessageSquare, Send, Camera, Loader2, Paperclip, Image, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +23,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format } from "date-fns";
+import { useMediaUpload } from "@/hooks/useMediaUpload";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface CommentMedia {
+  id: string;
+  file_path: string;
+  file_name: string;
+  file_type: string | null;
+  url: string;
+}
 
 interface WorkOrderComment {
   id: string;
@@ -32,6 +43,7 @@ interface WorkOrderComment {
   profile?: {
     full_name: string | null;
   };
+  media?: CommentMedia[];
 }
 
 interface WorkOrderDetailModalProps {
@@ -82,8 +94,13 @@ export function WorkOrderDetailModal({
   const [loadingComments, setLoadingComments] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [userProfiles, setUserProfiles] = useState<Record<string, string>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const commentsEndRef = useRef<HTMLDivElement>(null);
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { uploadFile, uploading } = useMediaUpload();
 
   useEffect(() => {
     if (workOrder) {
@@ -94,23 +111,72 @@ export function WorkOrderDetailModal({
     }
   }, [workOrder?.id]);
 
+  useEffect(() => {
+    // Scroll to bottom when comments change
+    commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [comments]);
+
   const fetchComments = async () => {
     if (!workOrder) return;
     setLoadingComments(true);
     try {
-      const { data, error } = await supabase
+      // Fetch comments
+      const { data: commentsData, error: commentsError } = await supabase
         .from("work_order_comments")
-        .select(`
-          id,
-          comment,
-          created_by,
-          created_at
-        `)
+        .select("id, comment, created_by, created_at")
         .eq("work_order_id", workOrder.id)
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
-      setComments(data || []);
+      if (commentsError) throw commentsError;
+
+      // Fetch user profiles for all unique user IDs
+      const userIds = [...new Set(commentsData?.map(c => c.created_by) || [])];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", userIds);
+        
+        const profileMap: Record<string, string> = {};
+        profiles?.forEach(p => {
+          profileMap[p.user_id] = p.full_name || "Unknown User";
+        });
+        setUserProfiles(profileMap);
+      }
+
+      // Fetch media for all comments
+      const commentIds = commentsData?.map(c => c.id) || [];
+      let mediaMap: Record<string, CommentMedia[]> = {};
+      
+      if (commentIds.length > 0) {
+        const { data: mediaData } = await supabase
+          .from("media")
+          .select("id, file_path, file_name, file_type, associated_id")
+          .eq("associated_type", "work_order_comment")
+          .in("associated_id", commentIds);
+
+        mediaData?.forEach(m => {
+          const url = supabase.storage.from("uploads").getPublicUrl(m.file_path).data.publicUrl;
+          if (!mediaMap[m.associated_id]) {
+            mediaMap[m.associated_id] = [];
+          }
+          mediaMap[m.associated_id].push({
+            id: m.id,
+            file_path: m.file_path,
+            file_name: m.file_name,
+            file_type: m.file_type,
+            url
+          });
+        });
+      }
+
+      // Combine comments with media
+      const commentsWithMedia = commentsData?.map(c => ({
+        ...c,
+        media: mediaMap[c.id] || []
+      })) || [];
+
+      setComments(commentsWithMedia);
     } catch (error) {
       console.error("Error fetching comments:", error);
     } finally {
@@ -118,22 +184,43 @@ export function WorkOrderDetailModal({
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setPendingFiles(prev => [...prev, ...files]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removePendingFile = (index: number) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleAddComment = async () => {
-    if (!workOrder || !newComment.trim() || !user) return;
+    if (!workOrder || (!newComment.trim() && pendingFiles.length === 0) || !user) return;
     
     setSubmittingComment(true);
     try {
-      const { error } = await supabase
+      // Create comment
+      const { data: commentData, error: commentError } = await supabase
         .from("work_order_comments")
         .insert({
           work_order_id: workOrder.id,
-          comment: newComment.trim(),
+          comment: newComment.trim() || "(attached files)",
           created_by: user.id,
-        });
+        })
+        .select("id")
+        .single();
 
-      if (error) throw error;
+      if (commentError) throw commentError;
+
+      // Upload files attached to this comment
+      for (const file of pendingFiles) {
+        await uploadFile(file, "work_order_comment", commentData.id);
+      }
       
       setNewComment("");
+      setPendingFiles([]);
       await fetchComments();
       toast({ title: "Comment added" });
     } catch (error: any) {
@@ -158,7 +245,6 @@ export function WorkOrderDetailModal({
         priority,
       };
       
-      // Only update department if user has permission (admin can change departments)
       if (assignedDepartment !== workOrder.department_id) {
         updates.department_id = assignedDepartment;
       }
@@ -176,11 +262,19 @@ export function WorkOrderDetailModal({
     }
   };
 
+  const getInitials = (name: string) => {
+    return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  };
+
+  const isImageFile = (fileType: string | null) => {
+    return fileType?.startsWith("image/");
+  };
+
   if (!workOrder) return null;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
@@ -193,7 +287,7 @@ export function WorkOrderDetailModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="flex-1 overflow-y-auto space-y-6 py-4">
           {/* Status and Priority */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -291,59 +385,181 @@ export function WorkOrderDetailModal({
             />
           </div>
 
-          {/* Comments Section */}
+          {/* Chat-like Comments Section */}
           <div className="space-y-3">
             <Label className="flex items-center gap-2">
               <MessageSquare className="w-4 h-4" />
-              Comments
+              Discussion
             </Label>
 
-            {/* Comments List */}
-            <div className="space-y-3 max-h-48 overflow-y-auto">
-              {loadingComments ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : comments.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No comments yet
-                </p>
-              ) : (
-                comments.map((comment) => (
-                  <div
-                    key={comment.id}
-                    className="bg-secondary/50 p-3 rounded-lg space-y-1"
-                  >
-                    <p className="text-sm">{comment.comment}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                    </p>
+            {/* Chat Messages */}
+            <div className="bg-secondary/30 rounded-lg border">
+              <ScrollArea className="h-64 p-3">
+                {loadingComments ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                   </div>
-                ))
-              )}
-            </div>
-
-            {/* Add Comment */}
-            <div className="flex gap-2">
-              <Textarea
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add a comment..."
-                rows={2}
-                className="flex-1"
-              />
-              <Button
-                onClick={handleAddComment}
-                disabled={!newComment.trim() || submittingComment}
-                size="icon"
-                className="self-end bg-accent text-accent-foreground hover:bg-accent/90"
-              >
-                {submittingComment ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : comments.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                    <MessageSquare className="w-8 h-8 mb-2 opacity-50" />
+                    <p className="text-sm">No messages yet. Start the conversation!</p>
+                  </div>
                 ) : (
-                  <Send className="w-4 h-4" />
+                  <div className="space-y-4">
+                    {comments.map((comment) => {
+                      const isOwnMessage = comment.created_by === user?.id;
+                      const userName = userProfiles[comment.created_by] || "Unknown User";
+                      
+                      return (
+                        <div
+                          key={comment.id}
+                          className={cn(
+                            "flex gap-2",
+                            isOwnMessage ? "flex-row-reverse" : "flex-row"
+                          )}
+                        >
+                          <Avatar className="h-8 w-8 shrink-0">
+                            <AvatarFallback className="text-xs bg-accent/20 text-accent">
+                              {getInitials(userName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className={cn(
+                            "max-w-[75%] space-y-1",
+                            isOwnMessage ? "items-end" : "items-start"
+                          )}>
+                            <div className={cn(
+                              "text-xs text-muted-foreground",
+                              isOwnMessage ? "text-right" : "text-left"
+                            )}>
+                              {userName}
+                            </div>
+                            <div className={cn(
+                              "rounded-lg p-3 text-sm",
+                              isOwnMessage 
+                                ? "bg-accent text-accent-foreground rounded-br-sm" 
+                                : "bg-background border rounded-bl-sm"
+                            )}>
+                              {comment.comment !== "(attached files)" && (
+                                <p>{comment.comment}</p>
+                              )}
+                              
+                              {/* Media attachments */}
+                              {comment.media && comment.media.length > 0 && (
+                                <div className="mt-2 space-y-2">
+                                  {comment.media.map((m) => (
+                                    <div key={m.id}>
+                                      {isImageFile(m.file_type) ? (
+                                        <a href={m.url} target="_blank" rel="noopener noreferrer">
+                                          <img 
+                                            src={m.url} 
+                                            alt={m.file_name}
+                                            className="max-w-full max-h-40 rounded-md object-cover hover:opacity-90 transition-opacity"
+                                          />
+                                        </a>
+                                      ) : (
+                                        <a 
+                                          href={m.url} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className={cn(
+                                            "flex items-center gap-2 p-2 rounded-md text-xs hover:opacity-80 transition-opacity",
+                                            isOwnMessage ? "bg-accent-foreground/10" : "bg-secondary"
+                                          )}
+                                        >
+                                          <FileText className="w-4 h-4" />
+                                          <span className="truncate">{m.file_name}</span>
+                                        </a>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div className={cn(
+                              "text-[10px] text-muted-foreground",
+                              isOwnMessage ? "text-right" : "text-left"
+                            )}>
+                              {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div ref={commentsEndRef} />
+                  </div>
                 )}
-              </Button>
+              </ScrollArea>
+
+              {/* Pending Files Preview */}
+              {pendingFiles.length > 0 && (
+                <div className="px-3 py-2 border-t bg-secondary/50 flex flex-wrap gap-2">
+                  {pendingFiles.map((file, index) => (
+                    <div 
+                      key={index}
+                      className="flex items-center gap-1 bg-background rounded-md px-2 py-1 text-xs border"
+                    >
+                      {file.type.startsWith("image/") ? (
+                        <Image className="w-3 h-3" />
+                      ) : (
+                        <FileText className="w-3 h-3" />
+                      )}
+                      <span className="max-w-20 truncate">{file.name}</span>
+                      <button
+                        onClick={() => removePendingFile(index)}
+                        className="hover:bg-destructive/10 rounded p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Message Input */}
+              <div className="p-3 border-t flex gap-2 items-end">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="shrink-0"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </Button>
+                <Textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Type a message..."
+                  rows={1}
+                  className="flex-1 min-h-[38px] max-h-24 resize-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAddComment();
+                    }
+                  }}
+                />
+                <Button
+                  onClick={handleAddComment}
+                  disabled={(!newComment.trim() && pendingFiles.length === 0) || submittingComment || uploading}
+                  size="icon"
+                  className="shrink-0 bg-accent text-accent-foreground hover:bg-accent/90"
+                >
+                  {submittingComment || uploading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
