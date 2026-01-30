@@ -5,7 +5,7 @@ import { CreateWorkOrderModal } from "@/components/workorders/CreateWorkOrderMod
 import { WorkOrderDetailModal } from "@/components/workorders/WorkOrderDetailModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, SlidersHorizontal, Loader2, LayoutGrid, List } from "lucide-react";
+import { Plus, Search, SlidersHorizontal, Loader2, LayoutGrid, List, User } from "lucide-react";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,10 +23,11 @@ export default function WorkOrders() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<typeof workOrders[0] | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [showMyWorkOrders, setShowMyWorkOrders] = useState(false);
 
   const { workOrders, loading, createWorkOrder, updateWorkOrder } = useWorkOrders();
   const { departments } = useDepartments();
-  const { profile, isAdmin } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
 
   const filteredWorkOrders = workOrders.filter((wo) => {
     const matchesSearch = 
@@ -45,8 +46,12 @@ export default function WorkOrders() {
     const matchesPriority = selectedPriority === "All Priorities" || 
       wo.priority.toLowerCase() === selectedPriority.toLowerCase();
     
-    return matchesSearch && matchesStatus && matchesPriority;
+    const matchesMyWorkOrders = !showMyWorkOrders || wo.created_by === user?.id;
+    
+    return matchesSearch && matchesStatus && matchesPriority && matchesMyWorkOrders;
   });
+
+  const myWorkOrdersCount = workOrders.filter(wo => wo.created_by === user?.id).length;
 
   const openCount = workOrders.filter(wo => wo.status === "open").length;
   const inProgressCount = workOrders.filter(wo => wo.status === "in-progress").length;
@@ -168,6 +173,19 @@ export default function WorkOrders() {
                 </option>
               ))}
             </select>
+            
+            {/* My Work Orders Toggle */}
+            <button
+              onClick={() => setShowMyWorkOrders(!showMyWorkOrders)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                showMyWorkOrders
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              }`}
+            >
+              <User className="w-4 h-4" />
+              My WOs ({myWorkOrdersCount})
+            </button>
           </div>
           
           {/* View Toggle */}
