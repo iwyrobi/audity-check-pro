@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMediaUpload } from "@/hooks/useMediaUpload";
 import { Button } from "@/components/ui/button";
 import { Camera, Upload, X, Loader2, Image as ImageIcon } from "lucide-react";
@@ -13,7 +13,7 @@ interface UploadedMedia {
 }
 
 interface MediaUploaderProps {
-  associatedType: "inspection" | "work_order" | "inspection_answer";
+  associatedType: "inspection" | "work_order" | "inspection_answer" | "work_order_comment";
   associatedId: string;
   existingMedia?: UploadedMedia[];
   onUpload?: (media: UploadedMedia) => void;
@@ -31,10 +31,33 @@ export function MediaUploader({
   compact = false,
   maxFiles = 5,
 }: MediaUploaderProps) {
-  const { uploading, uploadFile, deleteMedia } = useMediaUpload();
+  const { uploading, uploadFile, deleteMedia, getMediaForItem } = useMediaUpload();
   const [media, setMedia] = useState<UploadedMedia[]>(existingMedia);
+  const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch existing media when component mounts or associatedId changes
+  useEffect(() => {
+    const fetchExistingMedia = async () => {
+      if (!associatedId) {
+        setLoading(false);
+        return;
+      }
+      
+      setLoading(true);
+      try {
+        const existingFiles = await getMediaForItem(associatedType, associatedId);
+        setMedia(existingFiles);
+      } catch (error) {
+        console.error("Error fetching existing media:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExistingMedia();
+  }, [associatedId, associatedType]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -69,7 +92,13 @@ export function MediaUploader({
   if (compact) {
     return (
       <div className="flex flex-wrap gap-2">
-        {media.map((item) => (
+        {loading ? (
+          <div className="w-16 h-16 rounded-lg border border-border flex items-center justify-center">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <>
+            {media.map((item) => (
           <div
             key={item.id}
             className="relative w-16 h-16 rounded-lg overflow-hidden border border-border group"
@@ -124,14 +153,24 @@ export function MediaUploader({
             </button>
           </>
         )}
+          </>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading attachments...</span>
+        </div>
+      )}
+
       {/* Media Grid */}
-      {media.length > 0 && (
+      {!loading && media.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {media.map((item) => (
             <div
