@@ -60,6 +60,7 @@ export function useWorkOrders() {
     dueDate?: string;
     linkedInspectionId?: string;
     linkedDefectQuestion?: string;
+    departmentId?: string;
   }) => {
     if (!user || !profile?.department_id) {
       toast({
@@ -71,10 +72,13 @@ export function useWorkOrders() {
     }
 
     try {
+      // Use specified department or default to user's department
+      const targetDepartment = data.departmentId || profile.department_id;
+
       const { data: workOrder, error } = await supabase
         .from("work_orders")
         .insert({
-          department_id: profile.department_id,
+          department_id: targetDepartment,
           title: data.title,
           description: data.description,
           location: data.location,

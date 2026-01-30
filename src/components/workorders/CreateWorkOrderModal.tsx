@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { X, Save, Wrench } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Save, Wrench, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface CreateWorkOrderModalProps {
   open: boolean;
@@ -27,12 +28,14 @@ interface CreateWorkOrderModalProps {
     location?: string;
     priority?: string;
     dueDate?: string;
+    departmentId?: string;
   }) => void;
   defaultValues?: {
     title?: string;
     description?: string;
     location?: string;
   };
+  departments?: { id: string; name: string }[];
 }
 
 const priorities = [
@@ -46,13 +49,25 @@ export function CreateWorkOrderModal({
   open, 
   onClose, 
   onSave,
-  defaultValues 
+  defaultValues,
+  departments = [],
 }: CreateWorkOrderModalProps) {
   const [title, setTitle] = useState(defaultValues?.title || "");
   const [description, setDescription] = useState(defaultValues?.description || "");
   const [location, setLocation] = useState(defaultValues?.location || "");
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+
+  const { profile, isAdmin } = useAuth();
+
+  useEffect(() => {
+    if (open && defaultValues) {
+      setTitle(defaultValues.title || "");
+      setDescription(defaultValues.description || "");
+      setLocation(defaultValues.location || "");
+    }
+  }, [open, defaultValues]);
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -63,6 +78,7 @@ export function CreateWorkOrderModal({
       location: location || undefined,
       priority,
       dueDate: dueDate || undefined,
+      departmentId: selectedDepartment || undefined,
     });
 
     // Reset form
@@ -71,7 +87,10 @@ export function CreateWorkOrderModal({
     setLocation("");
     setPriority("medium");
     setDueDate("");
+    setSelectedDepartment("");
   };
+
+  const showDepartmentSelector = isAdmin && departments.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -106,6 +125,27 @@ export function CreateWorkOrderModal({
               rows={3}
             />
           </div>
+
+          {showDepartmentSelector && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Building2 className="w-4 h-4" />
+                Assign to Department
+              </Label>
+              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select department (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

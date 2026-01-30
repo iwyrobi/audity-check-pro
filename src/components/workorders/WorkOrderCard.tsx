@@ -9,7 +9,7 @@ export interface WorkOrder {
   priority: "low" | "medium" | "high" | "critical";
   status: "open" | "in-progress" | "pending" | "completed";
   assignedTo?: string;
-  dueDate: string;
+  dueDate?: string;
   createdAt: string;
 }
 
@@ -63,12 +63,14 @@ export function WorkOrderCard({ workOrder, onClick }: WorkOrderCardProps) {
       <div className="mt-4 pt-3 border-t border-border flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           <MapPin className="w-3.5 h-3.5" />
-          {workOrder.location}
+          {workOrder.location || "No location"}
         </span>
-        <span className="inline-flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5" />
-          Due: {workOrder.dueDate}
-        </span>
+        {workOrder.dueDate && (
+          <span className="inline-flex items-center gap-1">
+            <Clock className="w-3.5 h-3.5" />
+            Due: {workOrder.dueDate}
+          </span>
+        )}
         {workOrder.assignedTo && (
           <span className="inline-flex items-center gap-1">
             <User className="w-3.5 h-3.5" />

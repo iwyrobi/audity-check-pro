@@ -2,10 +2,12 @@ import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { WorkOrderCard } from "@/components/workorders/WorkOrderCard";
 import { CreateWorkOrderModal } from "@/components/workorders/CreateWorkOrderModal";
+import { WorkOrderDetailModal } from "@/components/workorders/WorkOrderDetailModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, SlidersHorizontal, Loader2 } from "lucide-react";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
+import { useDepartments } from "@/hooks/useDepartments";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 
@@ -17,9 +19,11 @@ export default function WorkOrders() {
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPriority, setSelectedPriority] = useState("All Priorities");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<typeof workOrders[0] | null>(null);
 
-  const { workOrders, loading, createWorkOrder } = useWorkOrders();
-  const { profile } = useAuth();
+  const { workOrders, loading, createWorkOrder, updateWorkOrder } = useWorkOrders();
+  const { departments } = useDepartments();
+  const { profile, isAdmin } = useAuth();
 
   const filteredWorkOrders = workOrders.filter((wo) => {
     const matchesSearch = 
@@ -51,11 +55,16 @@ export default function WorkOrders() {
     location?: string;
     priority?: string;
     dueDate?: string;
+    departmentId?: string;
   }) => {
     const result = await createWorkOrder(data);
     if (result) {
       setIsCreateModalOpen(false);
     }
+  };
+
+  const handleUpdateWorkOrder = async (id: string, updates: Record<string, any>) => {
+    return await updateWorkOrder(id, updates);
   };
 
   if (loading) {
@@ -183,6 +192,7 @@ export default function WorkOrders() {
                   dueDate: workOrder.due_date || undefined,
                   createdAt: formatDistanceToNow(new Date(workOrder.created_at), { addSuffix: true }),
                 }}
+                onClick={() => setSelectedWorkOrder(workOrder)}
               />
             </div>
           ))}
@@ -205,6 +215,16 @@ export default function WorkOrders() {
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSave={handleCreateWorkOrder}
+        departments={departments}
+      />
+
+      {/* Work Order Detail Modal */}
+      <WorkOrderDetailModal
+        open={!!selectedWorkOrder}
+        onClose={() => setSelectedWorkOrder(null)}
+        workOrder={selectedWorkOrder}
+        onUpdate={handleUpdateWorkOrder}
+        departments={isAdmin ? departments : []}
       />
     </AppLayout>
   );
