@@ -56,7 +56,7 @@ export default function Dashboard() {
         { data: workOrders },
       ] = await Promise.all([
         supabase.from("inspections").select("*", { count: "exact", head: true }),
-        supabase.from("work_orders").select("*", { count: "exact", head: true }).in("status", ["open", "in-progress"]),
+        supabase.from("work_orders").select("*", { count: "exact", head: true }).eq("status", "open"),
         supabase.from("inspection_answers").select("*", { count: "exact", head: true }).eq("is_defect", true),
         supabase.from("work_orders").select("*", { count: "exact", head: true }).eq("status", "completed").gte("completed_at", weekStart),
         supabase.from("checklist_templates").select("id, name, description, category, created_at, department_id, departments(name)").order("created_at", { ascending: false }).limit(4),
