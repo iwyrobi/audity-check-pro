@@ -1,15 +1,20 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { InspectionRunner, QuestionAnswer } from "@/components/checklists/InspectionRunner";
 import { CreateWorkOrderFromDefect } from "@/components/checklists/CreateWorkOrderFromDefect";
-import { TemplateSection, QuestionItem } from "@/components/checklists/TemplateBuilder";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save, Send, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Save, Send, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { TemplateSection, QuestionItem } from "@/components/checklists/TemplateBuilder";
+import { useInspections } from "@/hooks/useInspections";
+import { useWorkOrders } from "@/hooks/useWorkOrders";
+import { ChecklistTemplateDB } from "@/hooks/useChecklistTemplates";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-// Sample template for demo
+// Sample template for demo (used when no template is passed)
 const sampleTemplate: TemplateSection[] = [
   {
     id: "section-1",
@@ -47,13 +52,60 @@ const sampleTemplate: TemplateSection[] = [
 ];
 
 export default function RunInspection() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const { templateId, templateName, templateData } = (location.state as {
+    templateId?: string;
+    templateName?: string;
+    templateData?: ChecklistTemplateDB;
+  }) || {};
+
+  const { createInspection, saveInspectionAnswers, completeInspection } = useInspections();
+  const { createWorkOrder } = useWorkOrders();
+
+  const [inspectionId, setInspectionId] = useState<string | null>(null);
+  const [inspectionTitle, setInspectionTitle] = useState(templateName || "Daily Safety Inspection");
   const [answers, setAnswers] = useState<Record<string, QuestionAnswer>>({});
   const [workOrderModal, setWorkOrderModal] = useState<{
     open: boolean;
     question?: QuestionItem;
     section?: TemplateSection;
   }>({ open: false });
+  const [saving, setSaving] = useState(false);
+  const [sections, setSections] = useState<TemplateSection[]>(sampleTemplate);
+
+  // Convert template data to sections format if passed via navigation
+  useEffect(() => {
+    if (templateData?.sections) {
+      const convertedSections: TemplateSection[] = templateData.sections.map((section) => ({
+        id: section.id,
+        title: section.name,
+        isExpanded: true,
+        questions: (section.questions || []).map((q) => ({
+          id: q.id,
+          text: q.question,
+          type: q.type as "yes-no" | "score" | "text" | "multiple-choice",
+          score: q.score,
+          required: q.required,
+          options: q.options,
+        })),
+      }));
+      setSections(convertedSections);
+    }
+  }, [templateData]);
+
+  // Initialize inspection in database when using real template
+  useEffect(() => {
+    const initInspection = async () => {
+      if (templateId && !inspectionId && templateData) {
+        const inspection = await createInspection(templateId, inspectionTitle);
+        if (inspection) {
+          setInspectionId(inspection.id);
+        }
+      }
+    };
+    initInspection();
+  }, [templateId, templateData]);
 
   const handleAnswer = (questionId: string, answer: Partial<QuestionAnswer>) => {
     setAnswers((prev) => ({
@@ -70,50 +122,93 @@ export default function RunInspection() {
     setWorkOrderModal({ open: true, question, section });
   };
 
-  const handleSaveWorkOrder = (workOrder: any) => {
-    console.log("Work order created:", workOrder);
-    // In real app, save to database
+  const handleSaveWorkOrder = async (data: any) => {
+    if (templateData) {
+      await createWorkOrder({
+        title: data.title,
+        description: data.description,
+        priority: data.priority,
+        location: data.location,
+        linkedInspectionId: inspectionId || undefined,
+        linkedDefectQuestion: workOrderModal.question?.text,
+      });
+    } else {
+      toast.success("Work order created!");
+    }
+    setWorkOrderModal({ open: false });
   };
 
   // Calculate totals
-  const totalQuestions = sampleTemplate.reduce((acc, s) => acc + s.questions.length, 0);
+  const totalQuestions = sections.reduce((acc, s) => acc + s.questions.length, 0);
   const answeredQuestions = Object.keys(answers).length;
   const totalScore = Object.values(answers).reduce((acc, a) => acc + (a.score || 0), 0);
-  const maxScore = sampleTemplate.reduce(
+  const maxScore = sections.reduce(
     (acc, s) => acc + s.questions.reduce((qacc, q) => qacc + q.score, 0),
     0
   );
   const defectCount = Object.values(answers).filter((a) => a.isDefect).length;
   const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (answeredQuestions < totalQuestions) {
       toast.error(`Please answer all questions (${answeredQuestions}/${totalQuestions} completed)`);
       return;
     }
-    toast.success("Inspection submitted successfully!");
+
+    setSaving(true);
+
+    if (inspectionId && templateData) {
+      // Save to database
+      const answerData = Object.entries(answers).map(([questionId, answer]) => {
+        const question = sections
+          .flatMap((s) => s.questions)
+          .find((q) => q.id === questionId);
+
+        return {
+          questionId,
+          questionText: question?.text || "",
+          answer: String(answer.value),
+          scoreEarned: answer.score,
+          maxScore: answer.maxScore,
+          isDefect: answer.isDefect,
+          notes: answer.notes,
+        };
+      });
+
+      await saveInspectionAnswers(inspectionId, answerData);
+      await completeInspection(inspectionId, totalScore, maxScore);
+    } else {
+      toast.success("Inspection submitted successfully!");
+    }
+
+    setSaving(false);
     navigate("/checklists");
   };
 
   return (
-    <AppLayout title="Daily Safety Inspection">
+    <AppLayout title={inspectionTitle}>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <Button variant="ghost" onClick={() => navigate("/checklists")}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Checklists
           </Button>
           <div className="flex items-center gap-3">
-            <Button variant="outline">
+            <Button variant="outline" disabled={saving}>
               <Save className="w-4 h-4 mr-2" />
               Save Draft
             </Button>
             <Button
               className="bg-accent text-accent-foreground hover:bg-accent/90"
               onClick={handleSubmit}
+              disabled={saving}
             >
-              <Send className="w-4 h-4 mr-2" />
+              {saving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
               Submit Inspection
             </Button>
           </div>
@@ -179,7 +274,7 @@ export default function RunInspection() {
 
         {/* Inspection Questions */}
         <InspectionRunner
-          sections={sampleTemplate}
+          sections={sections}
           answers={answers}
           onAnswer={handleAnswer}
           onCreateWorkOrder={handleCreateWorkOrder}
@@ -194,7 +289,7 @@ export default function RunInspection() {
               ? {
                   questionText: workOrderModal.question.text,
                   sectionTitle: workOrderModal.section.title,
-                  checklistTitle: "Daily Safety Inspection",
+                  checklistTitle: inspectionTitle,
                 }
               : undefined
           }

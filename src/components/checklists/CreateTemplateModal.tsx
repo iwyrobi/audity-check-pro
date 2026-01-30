@@ -22,16 +22,12 @@ import { toast } from "sonner";
 interface CreateTemplateModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (template: ChecklistTemplate) => void;
-}
-
-export interface ChecklistTemplate {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  sections: TemplateSection[];
-  createdAt: string;
+  onSave: (template: {
+    title: string;
+    description: string;
+    category: string;
+    sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[];
+  }) => void;
 }
 
 const categories = ["Safety", "Maintenance", "Quality", "Fleet", "Hygiene", "IT", "HR", "Other"];
@@ -63,18 +59,31 @@ export function CreateTemplateModal({ open, onClose, onSave }: CreateTemplateMod
       return;
     }
 
-    const template: ChecklistTemplate = {
-      id: `template-${Date.now()}`,
+    const hasQuestions = sections.some(s => s.questions.some(q => q.text.trim()));
+    if (!hasQuestions) {
+      toast.error("Please add at least one question");
+      return;
+    }
+
+    const templateData = {
       title,
       description,
       category,
-      sections,
-      createdAt: new Date().toISOString(),
+      sections: sections.map(s => ({
+        title: s.title,
+        questions: s.questions
+          .filter(q => q.text.trim())
+          .map(q => ({
+            text: q.text,
+            type: q.type,
+            score: q.score,
+            required: q.required,
+          })),
+      })).filter(s => s.questions.length > 0),
     };
 
-    onSave(template);
+    onSave(templateData);
     toast.success("Checklist template created successfully!");
-    onClose();
     
     // Reset form
     setTitle("");
@@ -98,9 +107,9 @@ export function CreateTemplateModal({ open, onClose, onSave }: CreateTemplateMod
     ]);
   };
 
-  const totalQuestions = sections.reduce((acc, s) => acc + s.questions.length, 0);
+  const totalQuestions = sections.reduce((acc, s) => acc + s.questions.filter(q => q.text.trim()).length, 0);
   const totalScore = sections.reduce(
-    (acc, s) => acc + s.questions.reduce((qacc, q) => qacc + q.score, 0),
+    (acc, s) => acc + s.questions.filter(q => q.text.trim()).reduce((qacc, q) => qacc + q.score, 0),
     0
   );
 
