@@ -43,6 +43,7 @@ export interface TemplateSection {
   title: string;
   questions: QuestionItem[];
   isExpanded: boolean;
+  defaultCollapsed?: boolean; // If true, section starts collapsed when running inspection
 }
 
 interface TemplateBuilderProps {
@@ -246,9 +247,22 @@ function SortableSection({
           className="flex-1 font-semibold bg-transparent border-0 p-0 h-auto focus-visible:ring-0"
           placeholder="Section Title"
         />
-        <span className="text-sm text-muted-foreground">
-          {section.questions.length} questions
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground">
+            {section.questions.length} questions
+          </span>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={section.defaultCollapsed || false}
+              onChange={(e) =>
+                onUpdateSection(section.id, { defaultCollapsed: e.target.checked })
+              }
+              className="rounded border-border w-3.5 h-3.5"
+            />
+            Collapse by default
+          </label>
+        </div>
         <Button
           variant="ghost"
           size="icon"

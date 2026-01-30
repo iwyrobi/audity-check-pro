@@ -45,7 +45,7 @@ export function InspectionRunner({
   inspectionId,
 }: InspectionRunnerProps) {
   const [expandedSections, setExpandedSections] = useState<string[]>(
-    sections.map((s) => s.id)
+    sections.filter((s) => !s.defaultCollapsed).map((s) => s.id)
   );
   const [showNotes, setShowNotes] = useState<Record<string, boolean>>({});
   const [showPhotos, setShowPhotos] = useState<Record<string, boolean>>({});
