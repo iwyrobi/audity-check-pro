@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 interface StatCardProps {
@@ -9,12 +10,17 @@ interface StatCardProps {
     value: number;
     isPositive: boolean;
   };
+  href?: string;
   className?: string;
 }
 
-export function StatCard({ title, value, icon, trend, className }: StatCardProps) {
-  return (
-    <div className={cn("stat-card animate-fade-in", className)}>
+export function StatCard({ title, value, icon, trend, href, className }: StatCardProps) {
+  const content = (
+    <div className={cn(
+      "stat-card animate-fade-in",
+      href && "cursor-pointer hover:shadow-md hover:border-primary/30 transition-all",
+      className
+    )}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
@@ -36,4 +42,10 @@ export function StatCard({ title, value, icon, trend, className }: StatCardProps
       </div>
     </div>
   );
+
+  if (href) {
+    return <Link to={href}>{content}</Link>;
+  }
+
+  return content;
 }

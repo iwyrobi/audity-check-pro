@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { WorkOrderCard } from "@/components/workorders/WorkOrderCard";
 import { CreateWorkOrderModal } from "@/components/workorders/CreateWorkOrderModal";
@@ -10,6 +10,7 @@ import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
+import { useSearchParams } from "react-router-dom";
 
 const statusFilters = ["All", "Open", "In Progress", "Pending", "Completed"];
 const priorityFilters = ["All Priorities", "Critical", "High", "Medium", "Low"];
@@ -17,6 +18,7 @@ const priorityFilters = ["All Priorities", "Critical", "High", "Medium", "Low"];
 type ViewMode = "grid" | "list";
 
 export default function WorkOrders() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPriority, setSelectedPriority] = useState("All Priorities");
@@ -56,6 +58,19 @@ export default function WorkOrders() {
   const openCount = workOrders.filter(wo => wo.status === "open").length;
   const inProgressCount = workOrders.filter(wo => wo.status === "in-progress").length;
   const criticalCount = workOrders.filter(wo => wo.priority === "critical").length;
+
+  // Handle URL-based work order selection (from dashboard click)
+  useEffect(() => {
+    const selectedId = searchParams.get("selected");
+    if (selectedId && workOrders.length > 0) {
+      const wo = workOrders.find(w => w.id === selectedId);
+      if (wo) {
+        setSelectedWorkOrder(wo);
+        // Clear the URL param after opening
+        setSearchParams({});
+      }
+    }
+  }, [searchParams, workOrders]);
 
   const handleCreateWorkOrder = async (data: {
     title: string;

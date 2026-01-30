@@ -4,11 +4,13 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { ChecklistCard } from "@/components/checklists/ChecklistCard";
 import { WorkOrderCard } from "@/components/workorders/WorkOrderCard";
+import { WorkOrderDetailModal } from "@/components/workorders/WorkOrderDetailModal";
 import { ClipboardCheck, Wrench, AlertTriangle, CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDepartments } from "@/hooks/useDepartments";
 import { formatDistanceToNow, subDays, startOfWeek } from "date-fns";
 
 interface DashboardStats {
@@ -28,7 +30,10 @@ export default function Dashboard() {
   });
   const [recentTemplates, setRecentTemplates] = useState<any[]>([]);
   const [recentWorkOrders, setRecentWorkOrders] = useState<any[]>([]);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<any>(null);
   const { user } = useAuth();
+  const { departments } = useDepartments();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
@@ -87,7 +92,7 @@ export default function Dashboard() {
         })
       );
 
-      // Format work orders for WorkOrderCard
+      // Format work orders for WorkOrderCard - keep raw data for modal
       const formattedWorkOrders = (workOrders || []).map((wo: any) => ({
         id: wo.id,
         title: wo.title,
@@ -98,6 +103,11 @@ export default function Dashboard() {
         createdBy: profileMap.get(wo.created_by) || "Unknown",
         dueDate: wo.due_date || undefined,
         createdAt: formatDistanceToNow(new Date(wo.created_at), { addSuffix: true }),
+        // Keep raw data for modal
+        department_id: wo.department_id,
+        assigned_to: wo.assigned_to,
+        due_date: wo.due_date,
+        created_at: wo.created_at,
       }));
       setRecentWorkOrders(formattedWorkOrders);
 
@@ -127,21 +137,25 @@ export default function Dashboard() {
             title="Total Inspections"
             value={stats.totalInspections}
             icon={<ClipboardCheck className="w-6 h-6 text-primary" />}
+            href="/inspections"
           />
           <StatCard
             title="Open Work Orders"
             value={stats.openWorkOrders}
             icon={<Wrench className="w-6 h-6 text-accent" />}
+            href="/work-orders"
           />
           <StatCard
             title="Issues Reported"
             value={stats.issuesReported}
             icon={<AlertTriangle className="w-6 h-6 text-warning" />}
+            href="/inspections"
           />
           <StatCard
             title="Completed This Week"
             value={stats.completedThisWeek}
             icon={<CheckCircle2 className="w-6 h-6 text-success" />}
+            href="/work-orders"
           />
         </div>
 
@@ -170,7 +184,11 @@ export default function Dashboard() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {recentTemplates.map((checklist) => (
-                    <ChecklistCard key={checklist.id} checklist={checklist} />
+                    <ChecklistCard 
+                      key={checklist.id} 
+                      checklist={checklist}
+                      onClick={() => navigate(`/checklists?template=${checklist.id}`)}
+                    />
                   ))}
                 </div>
               )}
@@ -192,7 +210,11 @@ export default function Dashboard() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {recentWorkOrders.map((workOrder) => (
-                    <WorkOrderCard key={workOrder.id} workOrder={workOrder} />
+                    <WorkOrderCard 
+                      key={workOrder.id} 
+                      workOrder={workOrder}
+                      onClick={() => setSelectedWorkOrder(workOrder)}
+                    />
                   ))}
                 </div>
               )}
@@ -200,6 +222,18 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Work Order Detail Modal */}
+      <WorkOrderDetailModal
+        open={!!selectedWorkOrder}
+        onClose={() => setSelectedWorkOrder(null)}
+        workOrder={selectedWorkOrder}
+        onUpdate={async () => {
+          fetchDashboardData();
+          return true;
+        }}
+        departments={departments}
+      />
     </AppLayout>
   );
 }

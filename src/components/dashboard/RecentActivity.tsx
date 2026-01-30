@@ -3,6 +3,7 @@ import { ClipboardCheck, Wrench, AlertTriangle, CheckCircle2, Loader2 } from "lu
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 interface Activity {
   id: string;
@@ -10,6 +11,8 @@ interface Activity {
   title: string;
   description: string;
   time: string;
+  linkType: "inspection" | "workorder";
+  linkId: string;
 }
 
 const iconMap = {
@@ -29,6 +32,7 @@ const colorMap = {
 export function RecentActivity() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchRecentActivity();
@@ -51,10 +55,10 @@ export function RecentActivity() {
         .order("created_at", { ascending: false })
         .limit(5);
 
-      // Fetch recent defects
+      // Fetch recent defects with inspection_id
       const { data: defects } = await supabase
         .from("inspection_answers")
-        .select("id, question_text, created_at")
+        .select("id, question_text, created_at, inspection_id")
         .eq("is_defect", true)
         .order("created_at", { ascending: false })
         .limit(3);
@@ -71,6 +75,8 @@ export function RecentActivity() {
             title: "Inspection Completed",
             description: i.title,
             time: formatDistanceToNow(new Date(i.completed_at || i.created_at), { addSuffix: true }),
+            linkType: "inspection",
+            linkId: i.id,
           });
         } else {
           allActivities.push({
@@ -79,6 +85,8 @@ export function RecentActivity() {
             title: "Inspection Started",
             description: i.title,
             time: formatDistanceToNow(new Date(i.created_at), { addSuffix: true }),
+            linkType: "inspection",
+            linkId: i.id,
           });
         }
       });
@@ -92,6 +100,8 @@ export function RecentActivity() {
             title: "Work Order Completed",
             description: wo.title,
             time: formatDistanceToNow(new Date(wo.completed_at || wo.created_at), { addSuffix: true }),
+            linkType: "workorder",
+            linkId: wo.id,
           });
         } else {
           allActivities.push({
@@ -100,11 +110,13 @@ export function RecentActivity() {
             title: "Work Order Created",
             description: wo.title,
             time: formatDistanceToNow(new Date(wo.created_at), { addSuffix: true }),
+            linkType: "workorder",
+            linkId: wo.id,
           });
         }
       });
 
-      // Add defects
+      // Add defects - link to their inspection
       (defects || []).forEach((d) => {
         allActivities.push({
           id: `defect-${d.id}`,
@@ -112,12 +124,13 @@ export function RecentActivity() {
           title: "Issue Reported",
           description: d.question_text,
           time: formatDistanceToNow(new Date(d.created_at), { addSuffix: true }),
+          linkType: "inspection",
+          linkId: d.inspection_id,
         });
       });
 
       // Sort by most recent and take top 8
       allActivities.sort((a, b) => {
-        // Parse relative times - this is approximate but good enough for sorting
         const timeA = a.time.includes("ago") ? 0 : 1;
         const timeB = b.time.includes("ago") ? 0 : 1;
         return timeA - timeB;
@@ -128,6 +141,14 @@ export function RecentActivity() {
       console.error("Error fetching recent activity:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleActivityClick = (activity: Activity) => {
+    if (activity.linkType === "inspection") {
+      navigate(`/inspections/${activity.linkId}`);
+    } else if (activity.linkType === "workorder") {
+      navigate(`/work-orders?selected=${activity.linkId}`);
     }
   };
 
@@ -148,13 +169,14 @@ export function RecentActivity() {
       {activities.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-2">
           {activities.map((activity, index) => {
             const Icon = iconMap[activity.type];
             return (
               <div
                 key={activity.id}
-                className="flex items-start gap-3 animate-slide-up"
+                onClick={() => handleActivityClick(activity)}
+                className="flex items-start gap-3 animate-slide-up p-2 -mx-2 rounded-lg cursor-pointer hover:bg-secondary/50 transition-colors"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div
