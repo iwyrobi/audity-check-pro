@@ -1,15 +1,8 @@
-import { useState } from "react";
-import { X, Save, ClipboardCheck } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Save, ClipboardCheck, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { TemplateBuilder, TemplateSection } from "./TemplateBuilder";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { ChecklistTemplateDB } from "@/hooks/useChecklistTemplates";
 
 interface CreateTemplateModalProps {
   open: boolean;
@@ -25,17 +20,16 @@ interface CreateTemplateModalProps {
   onSave: (template: {
     title: string;
     description: string;
-    category: string;
     sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[];
   }) => void;
+  editTemplate?: ChecklistTemplateDB | null;
+  copyTemplate?: ChecklistTemplateDB | null;
 }
 
-const categories = ["Safety", "Maintenance", "Quality", "Fleet", "Hygiene", "IT", "HR", "Other"];
-
-export function CreateTemplateModal({ open, onClose, onSave }: CreateTemplateModalProps) {
+export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyTemplate }: CreateTemplateModalProps) {
+  const { department } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("Safety");
   const [sections, setSections] = useState<TemplateSection[]>([
     {
       id: "section-1",
@@ -53,6 +47,52 @@ export function CreateTemplateModal({ open, onClose, onSave }: CreateTemplateMod
     },
   ]);
 
+  // Populate form when editing or copying
+  useEffect(() => {
+    const template = editTemplate || copyTemplate;
+    if (template && open) {
+      setTitle(copyTemplate ? `${template.name} (Copy)` : template.name);
+      setDescription(template.description || "");
+      
+      if (template.sections && template.sections.length > 0) {
+        setSections(
+          template.sections.map((s) => ({
+            id: s.id,
+            title: s.name,
+            questions: (s.questions || []).map((q) => ({
+              id: q.id,
+              text: q.question,
+              type: q.type as "yes-no" | "score" | "text" | "multiple-choice",
+              required: q.required,
+              score: q.score,
+            })),
+            isExpanded: true,
+          }))
+        );
+      }
+    } else if (!editTemplate && !copyTemplate && open) {
+      // Reset form for new template
+      setTitle("");
+      setDescription("");
+      setSections([
+        {
+          id: "section-1",
+          title: "General Inspection",
+          questions: [
+            {
+              id: "q-1",
+              text: "",
+              type: "yes-no",
+              required: true,
+              score: 1,
+            },
+          ],
+          isExpanded: true,
+        },
+      ]);
+    }
+  }, [editTemplate, copyTemplate, open]);
+
   const handleSave = () => {
     if (!title.trim()) {
       toast.error("Please enter a template title");
@@ -68,7 +108,6 @@ export function CreateTemplateModal({ open, onClose, onSave }: CreateTemplateMod
     const templateData = {
       title,
       description,
-      category,
       sections: sections.map(s => ({
         title: s.title,
         questions: s.questions
@@ -83,12 +122,11 @@ export function CreateTemplateModal({ open, onClose, onSave }: CreateTemplateMod
     };
 
     onSave(templateData);
-    toast.success("Checklist template created successfully!");
+    toast.success(editTemplate ? "Checklist updated!" : "Checklist template created!");
     
     // Reset form
     setTitle("");
     setDescription("");
-    setCategory("Safety");
     setSections([
       {
         id: "section-1",
@@ -113,15 +151,25 @@ export function CreateTemplateModal({ open, onClose, onSave }: CreateTemplateMod
     0
   );
 
+  const modalTitle = editTemplate 
+    ? "Edit Checklist Template" 
+    : copyTemplate 
+    ? "Copy Checklist Template" 
+    : "Create Checklist Template";
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <ClipboardCheck className="w-5 h-5 text-primary" />
+              {copyTemplate ? (
+                <Copy className="w-5 h-5 text-primary" />
+              ) : (
+                <ClipboardCheck className="w-5 h-5 text-primary" />
+              )}
             </div>
-            Create Checklist Template
+            {modalTitle}
           </DialogTitle>
         </DialogHeader>
 
@@ -137,19 +185,12 @@ export function CreateTemplateModal({ open, onClose, onSave }: CreateTemplateMod
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Category</label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">Department</label>
+              <Input
+                value={department?.name || "Not assigned"}
+                disabled
+                className="bg-muted"
+              />
             </div>
           </div>
 
@@ -183,7 +224,7 @@ export function CreateTemplateModal({ open, onClose, onSave }: CreateTemplateMod
 
           {/* Template Builder */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Questions & Sections</label>
+            <label className="text-sm font-medium">Questions & Sections (drag to reorder)</label>
             <TemplateBuilder sections={sections} onChange={setSections} />
           </div>
         </div>
@@ -195,7 +236,7 @@ export function CreateTemplateModal({ open, onClose, onSave }: CreateTemplateMod
           </Button>
           <Button onClick={handleSave} className="bg-accent text-accent-foreground hover:bg-accent/90">
             <Save className="w-4 h-4 mr-2" />
-            Save Template
+            {editTemplate ? "Update Template" : "Save Template"}
           </Button>
         </div>
       </DialogContent>

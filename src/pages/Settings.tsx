@@ -1,7 +1,8 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { User, Bell, Shield, Database, Palette, Globe, Building2 } from "lucide-react";
+import { User, Bell, Shield, Database, Palette, Globe } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { DepartmentManagement } from "@/components/settings/DepartmentManagement";
+import { UserManagement } from "@/components/settings/UserManagement";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -53,6 +54,7 @@ export default function Settings() {
         <Tabs defaultValue="general" className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="general">General</TabsTrigger>
+            {isAdmin && <TabsTrigger value="users">Users & Roles</TabsTrigger>}
             {isAdmin && <TabsTrigger value="departments">Departments</TabsTrigger>}
           </TabsList>
 
@@ -113,6 +115,14 @@ export default function Settings() {
               </div>
             </div>
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="users">
+              <div className="stat-card">
+                <UserManagement />
+              </div>
+            </TabsContent>
+          )}
 
           {isAdmin && (
             <TabsContent value="departments">

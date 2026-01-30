@@ -167,6 +167,77 @@ export function useChecklistTemplates() {
     }
   };
 
+  const updateTemplate = async (
+    templateId: string,
+    name: string,
+    description: string,
+    sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[]
+  ) => {
+    if (!user) return null;
+
+    try {
+      // Update template
+      const { error: templateError } = await supabase
+        .from("checklist_templates")
+        .update({ name, description })
+        .eq("id", templateId);
+
+      if (templateError) throw templateError;
+
+      // Delete existing sections (cascade will delete questions)
+      const { error: deleteSectionsError } = await supabase
+        .from("template_sections")
+        .delete()
+        .eq("template_id", templateId);
+
+      if (deleteSectionsError) throw deleteSectionsError;
+
+      // Re-create sections and questions
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        const { data: sectionData, error: sectionError } = await supabase
+          .from("template_sections")
+          .insert({
+            template_id: templateId,
+            name: section.title,
+            sort_order: i,
+          })
+          .select()
+          .single();
+
+        if (sectionError) throw sectionError;
+
+        const questionInserts = section.questions.map((q, qIndex) => ({
+          section_id: sectionData.id,
+          question: q.text,
+          type: q.type,
+          score: q.score,
+          required: q.required,
+          sort_order: qIndex,
+        }));
+
+        if (questionInserts.length > 0) {
+          const { error: questionsError } = await supabase
+            .from("template_questions")
+            .insert(questionInserts);
+
+          if (questionsError) throw questionsError;
+        }
+      }
+
+      await fetchTemplates();
+      return { id: templateId };
+    } catch (error: any) {
+      console.error("Error updating template:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update template",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
   const deleteTemplate = async (templateId: string) => {
     try {
       const { error } = await supabase
@@ -193,6 +264,7 @@ export function useChecklistTemplates() {
     loading,
     fetchTemplates,
     createTemplate,
+    updateTemplate,
     deleteTemplate,
   };
 }
