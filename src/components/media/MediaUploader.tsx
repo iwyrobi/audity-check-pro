@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Camera, Upload, X, Loader2, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface UploadedMedia {
+export interface UploadedMedia {
   id: string;
   file_path: string;
   file_name: string;
