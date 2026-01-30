@@ -19,7 +19,7 @@ export function useMediaUpload() {
 
   const uploadFile = async (
     file: File,
-    associatedType: "inspection" | "work_order" | "inspection_answer",
+    associatedType: "inspection" | "work_order" | "inspection_answer" | "work_order_comment",
     associatedId: string
   ): Promise<UploadedMedia | null> => {
     if (!user) {
