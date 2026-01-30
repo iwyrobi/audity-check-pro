@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Checklists from "./pages/Checklists";
+import Inspections from "./pages/Inspections";
 import WorkOrders from "./pages/WorkOrders";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
@@ -51,6 +52,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Checklists />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inspections"
+        element={
+          <ProtectedRoute>
+            <Inspections />
           </ProtectedRoute>
         }
       />

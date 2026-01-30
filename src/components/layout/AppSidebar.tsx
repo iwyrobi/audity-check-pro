@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   ClipboardCheck,
+  ClipboardList,
   Wrench,
   FileText,
   Settings,
@@ -19,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Checklists", href: "/checklists", icon: ClipboardCheck },
+  { name: "Inspections", href: "/inspections", icon: ClipboardList },
   { name: "Work Orders", href: "/work-orders", icon: Wrench },
   { name: "Reports", href: "/reports", icon: FileText },
   { name: "Settings", href: "/settings", icon: Settings },
