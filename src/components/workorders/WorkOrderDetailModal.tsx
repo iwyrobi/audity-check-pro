@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, Wrench, Clock, MapPin, Building2, MessageSquare, Send, Camera, Loader2, Paperclip, Image, X, FileText } from "lucide-react";
+import { Save, Wrench, Clock, MapPin, Building2, MessageSquare, Send, Camera, Loader2, Paperclip, Image, X, FileText, Users, UserPlus, UserMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +44,13 @@ interface WorkOrderComment {
     full_name: string | null;
   };
   media?: CommentMedia[];
+}
+
+interface Completer {
+  id: string;
+  user_id: string;
+  completed_at: string;
+  user_name: string;
 }
 
 interface WorkOrderDetailModalProps {
@@ -96,6 +103,9 @@ export function WorkOrderDetailModal({
   const [saving, setSaving] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [userProfiles, setUserProfiles] = useState<Record<string, string>>({});
+  const [completers, setCompleters] = useState<Completer[]>([]);
+  const [loadingCompleters, setLoadingCompleters] = useState(false);
+  const [addingCompleter, setAddingCompleter] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const { user, profile } = useAuth();
@@ -108,6 +118,7 @@ export function WorkOrderDetailModal({
       setPriority(workOrder.priority);
       setAssignedDepartment(workOrder.department_id);
       fetchComments();
+      fetchCompleters();
     }
   }, [workOrder?.id]);
 
@@ -181,6 +192,80 @@ export function WorkOrderDetailModal({
       console.error("Error fetching comments:", error);
     } finally {
       setLoadingComments(false);
+    }
+  };
+
+  const fetchCompleters = async () => {
+    if (!workOrder) return;
+    setLoadingCompleters(true);
+    try {
+      const { data, error } = await supabase
+        .from("work_order_completers")
+        .select("id, user_id, completed_at")
+        .eq("work_order_id", workOrder.id)
+        .order("completed_at", { ascending: true });
+
+      if (error) throw error;
+
+      // Fetch names for all completers using security definer function
+      const completersWithNames = await Promise.all(
+        (data || []).map(async (c) => {
+          const { data: name } = await supabase.rpc("get_profile_name", { _user_id: c.user_id });
+          return {
+            ...c,
+            user_name: name || "Unknown",
+          };
+        })
+      );
+
+      setCompleters(completersWithNames);
+    } catch (error) {
+      console.error("Error fetching completers:", error);
+    } finally {
+      setLoadingCompleters(false);
+    }
+  };
+
+  const toggleCompleter = async () => {
+    if (!workOrder || !user) return;
+    
+    const isAlreadyCompleter = completers.some(c => c.user_id === user.id);
+    setAddingCompleter(true);
+    
+    try {
+      if (isAlreadyCompleter) {
+        // Remove self
+        const { error } = await supabase
+          .from("work_order_completers")
+          .delete()
+          .eq("work_order_id", workOrder.id)
+          .eq("user_id", user.id);
+        
+        if (error) throw error;
+        toast({ title: "Removed from completers" });
+      } else {
+        // Add self
+        const { error } = await supabase
+          .from("work_order_completers")
+          .insert({
+            work_order_id: workOrder.id,
+            user_id: user.id,
+          });
+        
+        if (error) throw error;
+        toast({ title: "Added to completers" });
+      }
+      
+      await fetchCompleters();
+    } catch (error: any) {
+      console.error("Error toggling completer:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update completers",
+        variant: "destructive",
+      });
+    } finally {
+      setAddingCompleter(false);
     }
   };
 
@@ -385,6 +470,62 @@ export function WorkOrderDetailModal({
                 <Clock className="w-4 h-4" />
                 Due: {format(new Date(workOrder.due_date), "MMM d, yyyy")}
               </span>
+            )}
+          </div>
+
+          {/* Completed By Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Completed By
+              </Label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleCompleter}
+                disabled={addingCompleter}
+                className="h-8"
+              >
+                {addingCompleter ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : completers.some(c => c.user_id === user?.id) ? (
+                  <>
+                    <UserMinus className="w-4 h-4 mr-1" />
+                    Remove Me
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 mr-1" />
+                    Add Me
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            {loadingCompleters ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Loading...</span>
+              </div>
+            ) : completers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No one has marked this as completed yet.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {completers.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 text-success text-sm"
+                  >
+                    <Avatar className="h-5 w-5">
+                      <AvatarFallback className="text-[10px] bg-success/20 text-success">
+                        {c.user_name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>{c.user_name}</span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
