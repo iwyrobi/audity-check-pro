@@ -1,5 +1,8 @@
-import { ClipboardCheck, Wrench, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ClipboardCheck, Wrench, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { formatDistanceToNow } from "date-fns";
 
 interface Activity {
   id: string;
@@ -8,44 +11,6 @@ interface Activity {
   description: string;
   time: string;
 }
-
-const activities: Activity[] = [
-  {
-    id: "1",
-    type: "completed",
-    title: "Safety Inspection Completed",
-    description: "Warehouse A - Floor 2",
-    time: "10 min ago",
-  },
-  {
-    id: "2",
-    type: "issue",
-    title: "Issue Raised",
-    description: "Fire extinguisher needs replacement",
-    time: "25 min ago",
-  },
-  {
-    id: "3",
-    type: "workorder",
-    title: "Work Order Created",
-    description: "HVAC maintenance - Building C",
-    time: "1 hour ago",
-  },
-  {
-    id: "4",
-    type: "inspection",
-    title: "Inspection Started",
-    description: "Monthly equipment check",
-    time: "2 hours ago",
-  },
-  {
-    id: "5",
-    type: "completed",
-    title: "Quality Audit Completed",
-    description: "Production Line 3",
-    time: "3 hours ago",
-  },
-];
 
 const iconMap = {
   inspection: ClipboardCheck,
@@ -62,41 +27,160 @@ const colorMap = {
 };
 
 export function RecentActivity() {
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchRecentActivity();
+  }, []);
+
+  const fetchRecentActivity = async () => {
+    setLoading(true);
+    try {
+      // Fetch recent inspections
+      const { data: inspections } = await supabase
+        .from("inspections")
+        .select("id, title, status, location, created_at, completed_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      // Fetch recent work orders
+      const { data: workOrders } = await supabase
+        .from("work_orders")
+        .select("id, title, status, location, created_at, completed_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      // Fetch recent defects
+      const { data: defects } = await supabase
+        .from("inspection_answers")
+        .select("id, question_text, created_at")
+        .eq("is_defect", true)
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      // Build activity list
+      const allActivities: Activity[] = [];
+
+      // Add inspections
+      (inspections || []).forEach((i) => {
+        if (i.status === "completed") {
+          allActivities.push({
+            id: `inspection-completed-${i.id}`,
+            type: "completed",
+            title: "Inspection Completed",
+            description: i.title,
+            time: formatDistanceToNow(new Date(i.completed_at || i.created_at), { addSuffix: true }),
+          });
+        } else {
+          allActivities.push({
+            id: `inspection-${i.id}`,
+            type: "inspection",
+            title: "Inspection Started",
+            description: i.title,
+            time: formatDistanceToNow(new Date(i.created_at), { addSuffix: true }),
+          });
+        }
+      });
+
+      // Add work orders
+      (workOrders || []).forEach((wo) => {
+        if (wo.status === "completed") {
+          allActivities.push({
+            id: `wo-completed-${wo.id}`,
+            type: "completed",
+            title: "Work Order Completed",
+            description: wo.title,
+            time: formatDistanceToNow(new Date(wo.completed_at || wo.created_at), { addSuffix: true }),
+          });
+        } else {
+          allActivities.push({
+            id: `wo-${wo.id}`,
+            type: "workorder",
+            title: "Work Order Created",
+            description: wo.title,
+            time: formatDistanceToNow(new Date(wo.created_at), { addSuffix: true }),
+          });
+        }
+      });
+
+      // Add defects
+      (defects || []).forEach((d) => {
+        allActivities.push({
+          id: `defect-${d.id}`,
+          type: "issue",
+          title: "Issue Reported",
+          description: d.question_text,
+          time: formatDistanceToNow(new Date(d.created_at), { addSuffix: true }),
+        });
+      });
+
+      // Sort by most recent and take top 8
+      allActivities.sort((a, b) => {
+        // Parse relative times - this is approximate but good enough for sorting
+        const timeA = a.time.includes("ago") ? 0 : 1;
+        const timeB = b.time.includes("ago") ? 0 : 1;
+        return timeA - timeB;
+      });
+
+      setActivities(allActivities.slice(0, 8));
+    } catch (error) {
+      console.error("Error fetching recent activity:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="stat-card">
+        <h3 className="text-lg font-semibold text-foreground mb-4">Recent Activity</h3>
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="stat-card">
       <h3 className="text-lg font-semibold text-foreground mb-4">Recent Activity</h3>
-      <div className="space-y-4">
-        {activities.map((activity, index) => {
-          const Icon = iconMap[activity.type];
-          return (
-            <div
-              key={activity.id}
-              className="flex items-start gap-3 animate-slide-up"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
+      {activities.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
+      ) : (
+        <div className="space-y-4">
+          {activities.map((activity, index) => {
+            const Icon = iconMap[activity.type];
+            return (
               <div
-                className={cn(
-                  "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0",
-                  colorMap[activity.type]
-                )}
+                key={activity.id}
+                className="flex items-start gap-3 animate-slide-up"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
-                <Icon className="w-4 h-4" />
+                <div
+                  className={cn(
+                    "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0",
+                    colorMap[activity.type]
+                  )}
+                >
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {activity.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {activity.description}
+                  </p>
+                </div>
+                <span className="text-xs text-muted-foreground flex-shrink-0">
+                  {activity.time}
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {activity.title}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {activity.description}
-                </p>
-              </div>
-              <span className="text-xs text-muted-foreground flex-shrink-0">
-                {activity.time}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
