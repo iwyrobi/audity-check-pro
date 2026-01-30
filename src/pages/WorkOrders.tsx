@@ -5,11 +5,11 @@ import { CreateWorkOrderModal } from "@/components/workorders/CreateWorkOrderMod
 import { WorkOrderDetailModal } from "@/components/workorders/WorkOrderDetailModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, SlidersHorizontal, Loader2, LayoutGrid, List, User, Calendar } from "lucide-react";
+import { Plus, Search, Loader2, LayoutGrid, List, User, Calendar } from "lucide-react";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatDistanceToNow, startOfDay, startOfWeek, startOfMonth, isAfter } from "date-fns";
+import { format, formatDistanceToNow, startOfDay, startOfWeek, startOfMonth, isAfter, isBefore, endOfDay } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import {
   Select,
@@ -18,6 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 const statusFilters = ["All", "Open", "In Progress", "Pending", "Completed"];
 const priorityFilters = ["All Priorities", "Critical", "High", "Medium", "Low"];
@@ -25,6 +32,7 @@ const dateFilters = [
   { value: "today", label: "Today" },
   { value: "this-week", label: "This Week" },
   { value: "this-month", label: "This Month" },
+  { value: "custom", label: "Custom Range" },
   { value: "all", label: "All Time" },
 ];
 
@@ -36,6 +44,8 @@ export default function WorkOrders() {
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPriority, setSelectedPriority] = useState("All Priorities");
   const [selectedDateRange, setSelectedDateRange] = useState("today");
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<typeof workOrders[0] | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -45,16 +55,21 @@ export default function WorkOrders() {
   const { departments } = useDepartments();
   const { user, profile, isAdmin } = useAuth();
 
-  const getDateRangeStart = () => {
+  const getDateRange = (): { start: Date | null; end: Date | null } => {
     switch (selectedDateRange) {
       case "today":
-        return startOfDay(new Date());
+        return { start: startOfDay(new Date()), end: endOfDay(new Date()) };
       case "this-week":
-        return startOfWeek(new Date());
+        return { start: startOfWeek(new Date()), end: endOfDay(new Date()) };
       case "this-month":
-        return startOfMonth(new Date());
+        return { start: startOfMonth(new Date()), end: endOfDay(new Date()) };
+      case "custom":
+        return { 
+          start: customStartDate ? startOfDay(customStartDate) : null, 
+          end: customEndDate ? endOfDay(customEndDate) : null 
+        };
       default:
-        return null;
+        return { start: null, end: null };
     }
   };
 
@@ -77,8 +92,11 @@ export default function WorkOrders() {
     
     const matchesMyWorkOrders = !showMyWorkOrders || wo.created_by === user?.id;
     
-    const dateRangeStart = getDateRangeStart();
-    const matchesDateRange = !dateRangeStart || isAfter(new Date(wo.created_at), dateRangeStart);
+    const { start, end } = getDateRange();
+    const woDate = new Date(wo.created_at);
+    const matchesDateRange = 
+      (!start || isAfter(woDate, start) || woDate.getTime() === start.getTime()) && 
+      (!end || isBefore(woDate, end) || woDate.getTime() === end.getTime());
     
     return matchesSearch && matchesStatus && matchesPriority && matchesMyWorkOrders && matchesDateRange;
   });
@@ -176,9 +194,73 @@ export default function WorkOrders() {
                 className="pl-9 w-full sm:w-64"
               />
             </div>
-            <Button variant="outline" size="icon">
-              <SlidersHorizontal className="w-4 h-4" />
-            </Button>
+            {/* Date Range Filter */}
+            <Select value={selectedDateRange} onValueChange={setSelectedDateRange}>
+              <SelectTrigger className="w-[140px] bg-secondary border-0">
+                <Calendar className="w-4 h-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {dateFilters.map((filter) => (
+                  <SelectItem key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {/* Custom Date Range Pickers */}
+            {selectedDateRange === "custom" && (
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[130px] justify-start text-left font-normal",
+                        !customStartDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {customStartDate ? format(customStartDate, "MMM d, yyyy") : "Start"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={customStartDate}
+                      onSelect={setCustomStartDate}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-muted-foreground">-</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[130px] justify-start text-left font-normal",
+                        !customEndDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {customEndDate ? format(customEndDate, "MMM d, yyyy") : "End"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={customEndDate}
+                      onSelect={setCustomEndDate}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
           </div>
           <Button 
             className="bg-accent text-accent-foreground hover:bg-accent/90"
@@ -219,20 +301,6 @@ export default function WorkOrders() {
               ))}
             </select>
 
-            {/* Date Range Filter */}
-            <Select value={selectedDateRange} onValueChange={setSelectedDateRange}>
-              <SelectTrigger className="w-[140px] bg-secondary border-0">
-                <Calendar className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {dateFilters.map((filter) => (
-                  <SelectItem key={filter.value} value={filter.value}>
-                    {filter.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             
             {/* My Work Orders Toggle */}
             <button

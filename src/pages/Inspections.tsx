@@ -33,15 +33,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { format, startOfDay, startOfWeek, startOfMonth, isAfter } from "date-fns";
+import { format, startOfDay, startOfWeek, startOfMonth, isAfter, isBefore, endOfDay } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 const dateFilters = [
   { value: "today", label: "Today" },
   { value: "this-week", label: "This Week" },
   { value: "this-month", label: "This Month" },
+  { value: "custom", label: "Custom Range" },
   { value: "all", label: "All Time" },
 ];
 
@@ -50,6 +57,8 @@ export default function Inspections() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("all");
   const [selectedDateRange, setSelectedDateRange] = useState("today");
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
   
   const { inspections, loading } = useInspections();
   const { isAdmin } = useAuth();
@@ -59,16 +68,21 @@ export default function Inspections() {
   const [activeTab, setActiveTab] = useState("drafts");
   const [exporting, setExporting] = useState(false);
 
-  const getDateRangeStart = () => {
+  const getDateRange = (): { start: Date | null; end: Date | null } => {
     switch (selectedDateRange) {
       case "today":
-        return startOfDay(new Date());
+        return { start: startOfDay(new Date()), end: endOfDay(new Date()) };
       case "this-week":
-        return startOfWeek(new Date());
+        return { start: startOfWeek(new Date()), end: endOfDay(new Date()) };
       case "this-month":
-        return startOfMonth(new Date());
+        return { start: startOfMonth(new Date()), end: endOfDay(new Date()) };
+      case "custom":
+        return { 
+          start: customStartDate ? startOfDay(customStartDate) : null, 
+          end: customEndDate ? endOfDay(customEndDate) : null 
+        };
       default:
-        return null;
+        return { start: null, end: null };
     }
   };
 
@@ -76,8 +90,11 @@ export default function Inspections() {
     const matchesSearch = inspection.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDepartment = selectedDepartmentId === "all" || inspection.department_id === selectedDepartmentId;
     
-    const dateRangeStart = getDateRangeStart();
-    const matchesDateRange = !dateRangeStart || isAfter(new Date(inspection.created_at), dateRangeStart);
+    const { start, end } = getDateRange();
+    const inspectionDate = new Date(inspection.created_at);
+    const matchesDateRange = 
+      (!start || isAfter(inspectionDate, start) || inspectionDate.getTime() === start.getTime()) && 
+      (!end || isBefore(inspectionDate, end) || inspectionDate.getTime() === end.getTime());
     
     return matchesSearch && matchesDepartment && matchesDateRange;
   });
@@ -327,49 +344,102 @@ export default function Inspections() {
     <AppLayout title="Inspections">
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="relative flex-1 sm:flex-none">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search inspections..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 w-full sm:w-64"
-            />
-          </div>
-          {isAdmin && (
-            <Select value={selectedDepartmentId} onValueChange={setSelectedDepartmentId}>
-              <SelectTrigger className="w-[180px] bg-background">
-                <SelectValue placeholder="All Departments" />
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 sm:flex-none">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search inspections..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-full sm:w-64"
+              />
+            </div>
+            {isAdmin && (
+              <Select value={selectedDepartmentId} onValueChange={setSelectedDepartmentId}>
+                <SelectTrigger className="w-[180px] bg-background">
+                  <SelectValue placeholder="All Departments" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            
+            {/* Date Range Filter */}
+            <Select value={selectedDateRange} onValueChange={setSelectedDateRange}>
+              <SelectTrigger className="w-[140px] bg-background">
+                <Calendar className="w-4 h-4 mr-2" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-popover">
-                <SelectItem value="all">All Departments</SelectItem>
-                {departments.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.id}>
-                    {dept.name}
+                {dateFilters.map((filter) => (
+                  <SelectItem key={filter.value} value={filter.value}>
+                    {filter.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          )}
-          
-          {/* Date Range Filter */}
-          <Select value={selectedDateRange} onValueChange={setSelectedDateRange}>
-            <SelectTrigger className="w-[140px] bg-background">
-              <Calendar className="w-4 h-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-popover">
-              {dateFilters.map((filter) => (
-                <SelectItem key={filter.value} value={filter.value}>
-                  {filter.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            
+            {/* Custom Date Range Pickers */}
+            {selectedDateRange === "custom" && (
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[130px] justify-start text-left font-normal",
+                        !customStartDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {customStartDate ? format(customStartDate, "MMM d, yyyy") : "Start"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={customStartDate}
+                      onSelect={setCustomStartDate}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-muted-foreground">-</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[130px] justify-start text-left font-normal",
+                        !customEndDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {customEndDate ? format(customEndDate, "MMM d, yyyy") : "End"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={customEndDate}
+                      onSelect={setCustomEndDate}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+          </div>
         </div>
-
-        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="stat-card">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
