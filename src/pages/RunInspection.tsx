@@ -149,6 +149,35 @@ export default function RunInspection() {
   const defectCount = Object.values(answers).filter((a) => a.isDefect).length;
   const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
 
+  const handleSaveDraft = async () => {
+    if (!inspectionId || !templateData) {
+      toast.info("Draft saved locally");
+      return;
+    }
+
+    setSaving(true);
+
+    const answerData = Object.entries(answers).map(([questionId, answer]) => {
+      const question = sections
+        .flatMap((s) => s.questions)
+        .find((q) => q.id === questionId);
+
+      return {
+        questionId,
+        questionText: question?.text || "",
+        answer: String(answer.value),
+        scoreEarned: answer.score,
+        maxScore: answer.maxScore,
+        isDefect: answer.isDefect,
+        notes: answer.notes,
+      };
+    });
+
+    await saveInspectionAnswers(inspectionId, answerData);
+    toast.success("Draft saved successfully");
+    setSaving(false);
+  };
+
   const handleSubmit = async () => {
     if (answeredQuestions < totalQuestions) {
       toast.error(`Please answer all questions (${answeredQuestions}/${totalQuestions} completed)`);
@@ -195,7 +224,7 @@ export default function RunInspection() {
             Back to Checklists
           </Button>
           <div className="flex items-center gap-3">
-            <Button variant="outline" disabled={saving}>
+            <Button variant="outline" disabled={saving} onClick={handleSaveDraft}>
               <Save className="w-4 h-4 mr-2" />
               Save Draft
             </Button>
