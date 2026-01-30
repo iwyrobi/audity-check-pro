@@ -31,6 +31,7 @@ export default function InspectionDetail() {
 
   const [inspection, setInspection] = useState<InspectionDB | null>(null);
   const [answers, setAnswers] = useState<InspectionAnswerDB[]>([]);
+  const [completedByName, setCompletedByName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
@@ -52,6 +53,17 @@ export default function InspectionDetail() {
 
       if (inspectionError) throw inspectionError;
       setInspection(inspectionData);
+
+      // Fetch user who completed the inspection
+      if (inspectionData.created_by) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", inspectionData.created_by)
+          .maybeSingle();
+        
+        setCompletedByName(profileData?.full_name || "Unknown User");
+      }
 
       // Fetch answers
       const { data: answersData, error: answersError } = await supabase
@@ -270,6 +282,18 @@ export default function InspectionDetail() {
                       <p className="text-lg font-medium text-foreground flex items-center gap-1">
                         <Clock className="w-4 h-4" />
                         {format(new Date(inspection.completed_at), "MMM d, yyyy h:mm a")}
+                      </p>
+                    </div>
+                  </>
+                )}
+                {completedByName && (
+                  <>
+                    <div className="h-12 w-px bg-border hidden sm:block" />
+                    <div className="text-center sm:text-left">
+                      <p className="text-sm text-muted-foreground">Completed By</p>
+                      <p className="text-lg font-medium text-foreground flex items-center gap-1">
+                        <User className="w-4 h-4" />
+                        {completedByName}
                       </p>
                     </div>
                   </>
