@@ -260,7 +260,7 @@ export default function WorkOrders() {
         onClose={() => setSelectedWorkOrder(null)}
         workOrder={selectedWorkOrder}
         onUpdate={handleUpdateWorkOrder}
-        departments={isAdmin ? departments : []}
+        departments={departments}
       />
     </AppLayout>
   );
