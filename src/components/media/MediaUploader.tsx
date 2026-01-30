@@ -86,7 +86,11 @@ export function MediaUploader({
               </div>
             )}
             <button
-              onClick={() => handleDelete(item)}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                handleDelete(item);
+              }}
               className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
             >
               <X className="w-4 h-4 text-white" />
@@ -104,7 +108,11 @@ export function MediaUploader({
               className="hidden"
             />
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }}
               disabled={uploading}
               className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center hover:border-primary transition-colors disabled:opacity-50"
             >
@@ -145,7 +153,11 @@ export function MediaUploader({
                 </div>
               )}
               <button
-                onClick={() => handleDelete(item)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  handleDelete(item);
+                }}
                 className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <X className="w-3 h-3" />
@@ -179,7 +191,11 @@ export function MediaUploader({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => cameraInputRef.current?.click()}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              cameraInputRef.current?.click();
+            }}
             disabled={uploading}
             className="flex-1"
           >
@@ -195,7 +211,11 @@ export function MediaUploader({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              fileInputRef.current?.click();
+            }}
             disabled={uploading}
             className="flex-1"
           >
