@@ -1,4 +1,4 @@
-import { Wrench, MapPin, Clock, AlertCircle, User } from "lucide-react";
+import { Wrench, MapPin, Clock, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface WorkOrder {
@@ -16,6 +16,7 @@ export interface WorkOrder {
 interface WorkOrderCardProps {
   workOrder: WorkOrder;
   onClick?: () => void;
+  variant?: "grid" | "list";
 }
 
 const priorityStyles = {
@@ -32,7 +33,65 @@ const statusStyles = {
   completed: "status-badge-success",
 };
 
-export function WorkOrderCard({ workOrder, onClick }: WorkOrderCardProps) {
+export function WorkOrderCard({ workOrder, onClick, variant = "grid" }: WorkOrderCardProps) {
+  if (variant === "list") {
+    return (
+      <div
+        className="action-card group flex items-center gap-4 p-4"
+        onClick={onClick}
+      >
+        {/* Icon */}
+        <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+          <Wrench className="w-5 h-5 text-accent" />
+        </div>
+
+        {/* Main content */}
+        <div className="flex-1 min-w-0 flex items-center gap-6">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-foreground truncate">{workOrder.title}</h3>
+            <p className="text-sm text-muted-foreground truncate">{workOrder.description}</p>
+          </div>
+
+          {/* Location */}
+          <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground min-w-[120px]">
+            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="truncate">{workOrder.location || "No location"}</span>
+          </div>
+
+          {/* Due date */}
+          {workOrder.dueDate && (
+            <div className="hidden lg:flex items-center gap-1 text-xs text-muted-foreground min-w-[100px]">
+              <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>{workOrder.dueDate}</span>
+            </div>
+          )}
+
+          {/* Assignee */}
+          {workOrder.assignedTo && (
+            <div className="hidden lg:flex items-center gap-1 text-xs text-muted-foreground min-w-[100px]">
+              <User className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{workOrder.assignedTo}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Status and Priority badges */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className={cn("status-badge", statusStyles[workOrder.status])}>
+            {workOrder.status.replace("-", " ")}
+          </span>
+          <span className={cn("status-badge capitalize", priorityStyles[workOrder.priority])}>
+            {workOrder.priority}
+          </span>
+        </div>
+
+        {/* ID */}
+        <span className="text-xs text-muted-foreground hidden sm:block">#{workOrder.id.slice(0, 8)}</span>
+      </div>
+    );
+  }
+
+  // Grid variant (default)
   return (
     <div
       className="action-card group"
@@ -47,7 +106,7 @@ export function WorkOrderCard({ workOrder, onClick }: WorkOrderCardProps) {
             {workOrder.priority}
           </span>
         </div>
-        <span className="text-xs text-muted-foreground">#{workOrder.id}</span>
+        <span className="text-xs text-muted-foreground">#{workOrder.id.slice(0, 8)}</span>
       </div>
 
       <div className="flex items-start gap-3">
