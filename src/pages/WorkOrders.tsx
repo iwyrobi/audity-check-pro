@@ -5,7 +5,7 @@ import { CreateWorkOrderModal } from "@/components/workorders/CreateWorkOrderMod
 import { WorkOrderDetailModal } from "@/components/workorders/WorkOrderDetailModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, SlidersHorizontal, Loader2 } from "lucide-react";
+import { Plus, Search, SlidersHorizontal, Loader2, LayoutGrid, List } from "lucide-react";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,12 +14,15 @@ import { formatDistanceToNow } from "date-fns";
 const statusFilters = ["All", "Open", "In Progress", "Pending", "Completed"];
 const priorityFilters = ["All Priorities", "Critical", "High", "Medium", "Low"];
 
+type ViewMode = "grid" | "list";
+
 export default function WorkOrders() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPriority, setSelectedPriority] = useState("All Priorities");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<typeof workOrders[0] | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const { workOrders, loading, createWorkOrder, updateWorkOrder } = useWorkOrders();
   const { departments } = useDepartments();
@@ -137,33 +140,61 @@ export default function WorkOrders() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-4">
-          <div className="flex gap-2 overflow-x-auto">
-            {statusFilters.map((status) => (
-              <button
-                key={status}
-                onClick={() => setSelectedStatus(status)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                  selectedStatus === status
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
-              >
-                {status}
-              </button>
-            ))}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap gap-4">
+            <div className="flex gap-2 overflow-x-auto">
+              {statusFilters.map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setSelectedStatus(status)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                    selectedStatus === status
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+            <select
+              value={selectedPriority}
+              onChange={(e) => setSelectedPriority(e.target.value)}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-secondary text-secondary-foreground border-0 cursor-pointer"
+            >
+              {priorityFilters.map((priority) => (
+                <option key={priority} value={priority}>
+                  {priority}
+                </option>
+              ))}
+            </select>
           </div>
-          <select
-            value={selectedPriority}
-            onChange={(e) => setSelectedPriority(e.target.value)}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-secondary text-secondary-foreground border-0 cursor-pointer"
-          >
-            {priorityFilters.map((priority) => (
-              <option key={priority} value={priority}>
-                {priority}
-              </option>
-            ))}
-          </select>
+          
+          {/* View Toggle */}
+          <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`p-2 rounded-md transition-colors ${
+                viewMode === "grid"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Grid view"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`p-2 rounded-md transition-colors ${
+                viewMode === "list"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="List view"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Not assigned to department warning */}
@@ -173,8 +204,12 @@ export default function WorkOrders() {
           </div>
         )}
 
-        {/* Work Orders Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Work Orders Grid/List */}
+        <div className={
+          viewMode === "grid" 
+            ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            : "flex flex-col gap-3"
+        }>
           {filteredWorkOrders.map((workOrder, index) => (
             <div
               key={workOrder.id}
@@ -193,6 +228,7 @@ export default function WorkOrders() {
                   createdAt: formatDistanceToNow(new Date(workOrder.created_at), { addSuffix: true }),
                 }}
                 onClick={() => setSelectedWorkOrder(workOrder)}
+                variant={viewMode}
               />
             </div>
           ))}
