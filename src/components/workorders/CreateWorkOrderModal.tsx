@@ -104,7 +104,7 @@ export function CreateWorkOrderModal({
     setUploadedMedia((prev) => prev.filter((m) => m.id !== mediaId));
   };
 
-  const showDepartmentSelector = isAdmin && departments.length > 0;
+  const showDepartmentSelector = departments.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
