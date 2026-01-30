@@ -61,7 +61,6 @@ export function useWorkOrders() {
     linkedInspectionId?: string;
     linkedDefectQuestion?: string;
     departmentId?: string;
-    assignedTo?: string;
   }) => {
     if (!user || !profile?.department_id) {
       toast({
@@ -88,7 +87,6 @@ export function useWorkOrders() {
           due_date: data.dueDate,
           linked_inspection_id: data.linkedInspectionId,
           linked_defect_question: data.linkedDefectQuestion,
-          assigned_to: data.assignedTo,
           created_by: user.id,
         })
         .select()
