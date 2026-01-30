@@ -4,20 +4,21 @@ import { ChecklistCard } from "@/components/checklists/ChecklistCard";
 import { CreateTemplateModal } from "@/components/checklists/CreateTemplateModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter, Grid, List, Loader2 } from "lucide-react";
-import { useChecklistTemplates } from "@/hooks/useChecklistTemplates";
+import { Plus, Search, Grid, List, Loader2 } from "lucide-react";
+import { useChecklistTemplates, ChecklistTemplateDB } from "@/hooks/useChecklistTemplates";
 import { useAuth } from "@/contexts/AuthContext";
-
-const categories = ["All", "Safety", "Maintenance", "Quality", "Fleet", "Hygiene", "IT", "HR"];
+import { useToast } from "@/hooks/use-toast";
 
 export default function Checklists() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ChecklistTemplateDB | null>(null);
+  const [copyingTemplate, setCopyingTemplate] = useState<ChecklistTemplateDB | null>(null);
   
-  const { templates, loading, createTemplate } = useChecklistTemplates();
-  const { profile, isDepartmentHead, isAdmin } = useAuth();
+  const { templates, loading, createTemplate, updateTemplate, deleteTemplate } = useChecklistTemplates();
+  const { profile, department, isDepartmentHead, isAdmin } = useAuth();
+  const { toast } = useToast();
 
   const canCreateTemplates = isAdmin || isDepartmentHead;
 
@@ -25,25 +26,64 @@ export default function Checklists() {
     const matchesSearch = 
       template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (template.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
-    const matchesCategory = selectedCategory === "All" || template.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    return matchesSearch;
   });
 
   const handleSaveTemplate = async (templateData: {
     title: string;
     description: string;
-    category: string;
     sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[];
   }) => {
-    const result = await createTemplate(
-      templateData.title,
-      templateData.description,
-      templateData.category,
-      templateData.sections
-    );
-    if (result) {
-      setIsCreateModalOpen(false);
+    if (editingTemplate) {
+      // Update existing template
+      const result = await updateTemplate(
+        editingTemplate.id,
+        templateData.title,
+        templateData.description,
+        templateData.sections
+      );
+      if (result) {
+        setIsCreateModalOpen(false);
+        setEditingTemplate(null);
+      }
+    } else {
+      // Create new template (or copy)
+      const result = await createTemplate(
+        templateData.title,
+        templateData.description,
+        department?.name || "General",
+        templateData.sections
+      );
+      if (result) {
+        setIsCreateModalOpen(false);
+        setCopyingTemplate(null);
+      }
     }
+  };
+
+  const handleEdit = (template: ChecklistTemplateDB) => {
+    setEditingTemplate(template);
+    setCopyingTemplate(null);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCopy = (template: ChecklistTemplateDB) => {
+    setCopyingTemplate(template);
+    setEditingTemplate(null);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleArchive = async (template: ChecklistTemplateDB) => {
+    if (!confirm(`Are you sure you want to archive "${template.name}"?`)) {
+      return;
+    }
+    await deleteTemplate(template.id);
+  };
+
+  const handleCloseModal = () => {
+    setIsCreateModalOpen(false);
+    setEditingTemplate(null);
+    setCopyingTemplate(null);
   };
 
   const getQuestionCount = (template: typeof templates[0]) => {
@@ -78,9 +118,6 @@ export default function Checklists() {
                 className="pl-9 w-full sm:w-64"
               />
             </div>
-            <Button variant="outline" size="icon">
-              <Filter className="w-4 h-4" />
-            </Button>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center border border-border rounded-lg p-1">
@@ -100,7 +137,11 @@ export default function Checklists() {
             {canCreateTemplates && (
               <Button 
                 className="bg-accent text-accent-foreground hover:bg-accent/90"
-                onClick={() => setIsCreateModalOpen(true)}
+                onClick={() => {
+                  setEditingTemplate(null);
+                  setCopyingTemplate(null);
+                  setIsCreateModalOpen(true);
+                }}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Checklist
@@ -109,22 +150,12 @@ export default function Checklists() {
           </div>
         </div>
 
-        {/* Category Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                selectedCategory === category
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
+        {/* Department Info */}
+        {department && (
+          <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg text-sm">
+            Showing checklists for: <strong>{department.name}</strong>
+          </div>
+        )}
 
         {/* Not assigned to department warning */}
         {!profile?.department_id && (
@@ -149,11 +180,14 @@ export default function Checklists() {
                   id: template.id,
                   title: template.name,
                   description: template.description || "",
-                  category: template.category || "Other",
+                  departmentName: department?.name,
                   itemCount: getQuestionCount(template),
                   status: "active",
                 }}
                 templateData={template}
+                onEdit={() => handleEdit(template)}
+                onCopy={() => handleCopy(template)}
+                onArchive={() => handleArchive(template)}
               />
             </div>
           ))}
@@ -171,11 +205,13 @@ export default function Checklists() {
         )}
       </div>
 
-      {/* Create Template Modal */}
+      {/* Create/Edit Template Modal */}
       <CreateTemplateModal
         open={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={handleCloseModal}
         onSave={handleSaveTemplate}
+        editTemplate={editingTemplate}
+        copyTemplate={copyingTemplate}
       />
     </AppLayout>
   );

@@ -1,14 +1,22 @@
-import { ClipboardCheck, MoreVertical, Calendar, User, Play } from "lucide-react";
+import { ClipboardCheck, MoreVertical, Calendar, User, Play, Pencil, Copy, Archive, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { ChecklistTemplateDB } from "@/hooks/useChecklistTemplates";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface Checklist {
   id: string;
   title: string;
   description: string;
-  category: string;
+  departmentName?: string;
   itemCount: number;
   lastUsed?: string;
   assignedTo?: string;
@@ -19,6 +27,9 @@ interface ChecklistCardProps {
   checklist: Checklist;
   templateData?: ChecklistTemplateDB;
   onClick?: () => void;
+  onEdit?: () => void;
+  onCopy?: () => void;
+  onArchive?: () => void;
 }
 
 const statusStyles = {
@@ -27,12 +38,20 @@ const statusStyles = {
   archived: "status-badge-info",
 };
 
-export function ChecklistCard({ checklist, templateData, onClick }: ChecklistCardProps) {
+export function ChecklistCard({ 
+  checklist, 
+  templateData, 
+  onClick, 
+  onEdit, 
+  onCopy,
+  onArchive 
+}: ChecklistCardProps) {
   const navigate = useNavigate();
+  const { isAdmin, isDepartmentHead } = useAuth();
+  const canManage = isAdmin || isDepartmentHead;
 
   const handleStartInspection = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Pass template data via state for the inspection
     navigate("/run-inspection", { 
       state: { 
         templateId: checklist.id,
@@ -40,6 +59,11 @@ export function ChecklistCard({ checklist, templateData, onClick }: ChecklistCar
         templateData 
       } 
     });
+  };
+
+  const handleMenuClick = (e: React.MouseEvent, action: () => void) => {
+    e.stopPropagation();
+    action();
   };
 
   return (
@@ -55,14 +79,38 @@ export function ChecklistCard({ checklist, templateData, onClick }: ChecklistCar
           <span className={cn("status-badge capitalize", statusStyles[checklist.status])}>
             {checklist.status}
           </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreVertical className="w-4 h-4" />
-          </Button>
+          {canManage && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={(e) => handleMenuClick(e as any, onEdit || (() => {}))}>
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit Template
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => handleMenuClick(e as any, onCopy || (() => {}))}>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={(e) => handleMenuClick(e as any, onArchive || (() => {}))}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Archive className="w-4 h-4 mr-2" />
+                  Archive
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 
@@ -91,7 +139,10 @@ export function ChecklistCard({ checklist, templateData, onClick }: ChecklistCar
       </div>
 
       <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
-        <span className="text-xs font-medium text-accent">{checklist.category}</span>
+        <span className="text-xs font-medium text-accent flex items-center gap-1">
+          <Building2 className="w-3.5 h-3.5" />
+          {checklist.departmentName || "No Department"}
+        </span>
         {checklist.status === "active" && (
           <Button
             size="sm"
