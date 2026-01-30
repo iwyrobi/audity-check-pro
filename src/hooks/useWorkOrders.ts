@@ -153,7 +153,7 @@ export function useWorkOrders() {
       console.error("Error updating work order:", error);
       toast({
         title: "Error",
-        description: "Failed to update work order",
+        description: error.message || "Failed to update work order",
         variant: "destructive",
       });
       return false;

@@ -492,6 +492,10 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      reassign_work_order_department: {
+        Args: { _new_department_id: string; _work_order_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "department_head" | "user" | "super_admin"
