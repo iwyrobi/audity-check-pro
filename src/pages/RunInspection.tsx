@@ -278,6 +278,7 @@ export default function RunInspection() {
           answers={answers}
           onAnswer={handleAnswer}
           onCreateWorkOrder={handleCreateWorkOrder}
+          inspectionId={inspectionId || undefined}
         />
 
         {/* Work Order Modal */}

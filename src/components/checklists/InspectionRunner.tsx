@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { TemplateSection, QuestionItem } from "./TemplateBuilder";
+import { MediaUploader } from "@/components/media/MediaUploader";
 
 export type AnswerValue = "yes" | "no" | "na" | number | string;
 
@@ -33,6 +34,7 @@ interface InspectionRunnerProps {
   answers: Record<string, QuestionAnswer>;
   onAnswer: (questionId: string, answer: Partial<QuestionAnswer>) => void;
   onCreateWorkOrder: (question: QuestionItem, section: TemplateSection) => void;
+  inspectionId?: string;
 }
 
 export function InspectionRunner({
@@ -40,11 +42,13 @@ export function InspectionRunner({
   answers,
   onAnswer,
   onCreateWorkOrder,
+  inspectionId,
 }: InspectionRunnerProps) {
   const [expandedSections, setExpandedSections] = useState<string[]>(
     sections.map((s) => s.id)
   );
   const [showNotes, setShowNotes] = useState<Record<string, boolean>>({});
+  const [showPhotos, setShowPhotos] = useState<Record<string, boolean>>({});
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections((prev) =>
@@ -271,6 +275,22 @@ export function InspectionRunner({
                             <MessageSquare className="w-4 h-4" />
                           </Button>
 
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              setShowPhotos((prev) => ({
+                                ...prev,
+                                [question.id]: !prev[question.id],
+                              }))
+                            }
+                            className={cn(
+                              showPhotos[question.id] && "bg-secondary"
+                            )}
+                          >
+                            <Camera className="w-4 h-4" />
+                          </Button>
+
                           {isDefect && (
                             <Button
                               variant="outline"
@@ -296,6 +316,18 @@ export function InspectionRunner({
                             placeholder="Add notes or comments..."
                             rows={2}
                             className="text-sm"
+                          />
+                        </div>
+                      )}
+
+                      {/* Photos section */}
+                      {showPhotos[question.id] && inspectionId && (
+                        <div className="mt-3 ml-6">
+                          <MediaUploader
+                            associatedType="inspection_answer"
+                            associatedId={`${inspectionId}_${question.id}`}
+                            compact
+                            maxFiles={5}
                           />
                         </div>
                       )}
