@@ -240,14 +240,30 @@ export function WorkOrderDetailModal({
     
     setSaving(true);
     try {
+      // Handle department reassignment via dedicated RPC (bypasses RLS issues)
+      if (assignedDepartment !== workOrder.department_id) {
+        const { error: rpcError } = await supabase.rpc("reassign_work_order_department", {
+          _work_order_id: workOrder.id,
+          _new_department_id: assignedDepartment,
+        });
+
+        if (rpcError) {
+          console.error("Error reassigning department:", rpcError);
+          toast({
+            title: "Error",
+            description: rpcError.message || "Failed to reassign department",
+            variant: "destructive",
+          });
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Update other fields (status, priority, completed_at)
       const updates: Record<string, any> = {
         status,
         priority,
       };
-      
-      if (assignedDepartment !== workOrder.department_id) {
-        updates.department_id = assignedDepartment;
-      }
       
       if (status === "completed" && workOrder.status !== "completed") {
         updates.completed_at = new Date().toISOString();
