@@ -288,14 +288,14 @@ export function UserManagement() {
             <div>
               <label className="text-sm font-medium mb-1.5 block">Department</label>
               <Select
-                value={formData.department_id}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, department_id: value }))}
+                value={formData.department_id || "none"}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, department_id: value === "none" ? "" : value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Department</SelectItem>
+                  <SelectItem value="none">No Department</SelectItem>
                   {departments.map((dept) => (
                     <SelectItem key={dept.id} value={dept.id}>
                       {dept.name}
