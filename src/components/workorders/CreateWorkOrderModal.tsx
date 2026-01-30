@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Save, Wrench, Building2 } from "lucide-react";
+import { Save, Wrench, Building2, UserPlus, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +18,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { MediaUploader, UploadedMedia } from "@/components/media/MediaUploader";
 
 interface CreateWorkOrderModalProps {
   open: boolean;
@@ -29,6 +31,8 @@ interface CreateWorkOrderModalProps {
     priority?: string;
     dueDate?: string;
     departmentId?: string;
+    assignedTo?: string;
+    mediaFiles?: UploadedMedia[];
   }) => void;
   defaultValues?: {
     title?: string;
@@ -36,6 +40,12 @@ interface CreateWorkOrderModalProps {
     location?: string;
   };
   departments?: { id: string; name: string }[];
+}
+
+interface UserProfile {
+  user_id: string;
+  full_name: string | null;
+  department_id: string | null;
 }
 
 const priorities = [
@@ -58,8 +68,37 @@ export function CreateWorkOrderModal({
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [tempWorkOrderId] = useState(() => crypto.randomUUID());
+  const [uploadedMedia, setUploadedMedia] = useState<UploadedMedia[]>([]);
 
   const { profile, isAdmin } = useAuth();
+
+  // Fetch users for assignment
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoadingUsers(true);
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, department_id")
+          .order("full_name");
+
+        if (error) throw error;
+        setUsers(data || []);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    if (open) {
+      fetchUsers();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open && defaultValues) {
@@ -79,6 +118,8 @@ export function CreateWorkOrderModal({
       priority,
       dueDate: dueDate || undefined,
       departmentId: selectedDepartment || undefined,
+      assignedTo: assignedTo || undefined,
+      mediaFiles: uploadedMedia,
     });
 
     // Reset form
@@ -88,13 +129,28 @@ export function CreateWorkOrderModal({
     setPriority("medium");
     setDueDate("");
     setSelectedDepartment("");
+    setAssignedTo("");
+    setUploadedMedia([]);
   };
+
+  const handleMediaUpload = (media: UploadedMedia) => {
+    setUploadedMedia((prev) => [...prev, media]);
+  };
+
+  const handleMediaDelete = (mediaId: string) => {
+    setUploadedMedia((prev) => prev.filter((m) => m.id !== mediaId));
+  };
+
+  // Filter users by selected department if department is selected
+  const filteredUsers = selectedDepartment
+    ? users.filter((u) => u.department_id === selectedDepartment)
+    : users;
 
   const showDepartmentSelector = isAdmin && departments.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
@@ -132,7 +188,11 @@ export function CreateWorkOrderModal({
                 <Building2 className="w-4 h-4" />
                 Assign to Department
               </Label>
-              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+              <Select value={selectedDepartment} onValueChange={(val) => {
+                setSelectedDepartment(val);
+                // Reset assigned user when department changes
+                setAssignedTo("");
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select department (optional)" />
                 </SelectTrigger>
@@ -146,6 +206,26 @@ export function CreateWorkOrderModal({
               </Select>
             </div>
           )}
+
+          {/* Assign To User */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <UserPlus className="w-4 h-4" />
+              Assign To
+            </Label>
+            <Select value={assignedTo} onValueChange={setAssignedTo} disabled={loadingUsers}>
+              <SelectTrigger>
+                <SelectValue placeholder={loadingUsers ? "Loading users..." : "Select user (optional)"} />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredUsers.map((user) => (
+                  <SelectItem key={user.user_id} value={user.user_id}>
+                    {user.full_name || "Unnamed User"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -181,6 +261,22 @@ export function CreateWorkOrderModal({
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
+            />
+          </div>
+
+          {/* Media Upload Section */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <ImageIcon className="w-4 h-4" />
+              Photos & Attachments
+            </Label>
+            <MediaUploader
+              associatedType="work_order"
+              associatedId={tempWorkOrderId}
+              existingMedia={uploadedMedia}
+              onUpload={handleMediaUpload}
+              onDelete={handleMediaDelete}
+              maxFiles={5}
             />
           </div>
         </div>
