@@ -35,13 +35,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, startOfDay, startOfWeek, startOfMonth, isAfter } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+
+const dateFilters = [
+  { value: "today", label: "Today" },
+  { value: "this-week", label: "This Week" },
+  { value: "this-month", label: "This Month" },
+  { value: "all", label: "All Time" },
+];
 
 export default function Inspections() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("all");
+  const [selectedDateRange, setSelectedDateRange] = useState("today");
   
   const { inspections, loading } = useInspections();
   const { isAdmin } = useAuth();
@@ -51,10 +59,27 @@ export default function Inspections() {
   const [activeTab, setActiveTab] = useState("drafts");
   const [exporting, setExporting] = useState(false);
 
+  const getDateRangeStart = () => {
+    switch (selectedDateRange) {
+      case "today":
+        return startOfDay(new Date());
+      case "this-week":
+        return startOfWeek(new Date());
+      case "this-month":
+        return startOfMonth(new Date());
+      default:
+        return null;
+    }
+  };
+
   const filteredInspections = inspections.filter((inspection) => {
     const matchesSearch = inspection.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDepartment = selectedDepartmentId === "all" || inspection.department_id === selectedDepartmentId;
-    return matchesSearch && matchesDepartment;
+    
+    const dateRangeStart = getDateRangeStart();
+    const matchesDateRange = !dateRangeStart || isAfter(new Date(inspection.created_at), dateRangeStart);
+    
+    return matchesSearch && matchesDepartment && matchesDateRange;
   });
 
   const draftInspections = filteredInspections.filter((i) => i.status === "in-progress");
@@ -327,6 +352,21 @@ export default function Inspections() {
               </SelectContent>
             </Select>
           )}
+          
+          {/* Date Range Filter */}
+          <Select value={selectedDateRange} onValueChange={setSelectedDateRange}>
+            <SelectTrigger className="w-[140px] bg-background">
+              <Calendar className="w-4 h-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-popover">
+              {dateFilters.map((filter) => (
+                <SelectItem key={filter.value} value={filter.value}>
+                  {filter.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Stats */}
