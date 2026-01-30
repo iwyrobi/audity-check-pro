@@ -1,4 +1,4 @@
-import { Wrench, MapPin, Clock, User } from "lucide-react";
+import { Wrench, MapPin, Clock, User, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface WorkOrder {
@@ -9,6 +9,7 @@ export interface WorkOrder {
   priority: "low" | "medium" | "high" | "critical";
   status: "open" | "in-progress" | "pending" | "completed";
   assignedTo?: string;
+  createdBy?: string;
   dueDate?: string;
   createdAt: string;
 }
@@ -51,6 +52,14 @@ export function WorkOrderCard({ workOrder, onClick, variant = "grid" }: WorkOrde
             <h3 className="font-semibold text-foreground truncate">{workOrder.title}</h3>
             <p className="text-sm text-muted-foreground truncate">{workOrder.description}</p>
           </div>
+
+          {/* Created by */}
+          {workOrder.createdBy && (
+            <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground min-w-[100px]">
+              <UserCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{workOrder.createdBy}</span>
+            </div>
+          )}
 
           {/* Location */}
           <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground min-w-[120px]">
@@ -120,6 +129,12 @@ export function WorkOrderCard({ workOrder, onClick, variant = "grid" }: WorkOrde
       </div>
 
       <div className="mt-4 pt-3 border-t border-border flex flex-wrap gap-3 text-xs text-muted-foreground">
+        {workOrder.createdBy && (
+          <span className="inline-flex items-center gap-1">
+            <UserCircle className="w-3.5 h-3.5" />
+            Created by: {workOrder.createdBy}
+          </span>
+        )}
         <span className="inline-flex items-center gap-1">
           <MapPin className="w-3.5 h-3.5" />
           {workOrder.location || "No location"}

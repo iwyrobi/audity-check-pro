@@ -19,6 +19,7 @@ export interface WorkOrderDB {
   created_by: string;
   created_at: string;
   updated_at: string;
+  creator_name?: string;
 }
 
 export function useWorkOrders() {
@@ -32,13 +33,30 @@ export function useWorkOrders() {
 
     setLoading(true);
     try {
+      // Fetch work orders
       const { data, error } = await supabase
         .from("work_orders")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setWorkOrders(data || []);
+
+      // Fetch creator profiles
+      const creatorIds = [...new Set((data || []).map(wo => wo.created_by))];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", creatorIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
+
+      // Enrich work orders with creator names
+      const enrichedData = (data || []).map(wo => ({
+        ...wo,
+        creator_name: profileMap.get(wo.created_by) || "Unknown",
+      }));
+
+      setWorkOrders(enrichedData);
     } catch (error: any) {
       console.error("Error fetching work orders:", error);
     } finally {

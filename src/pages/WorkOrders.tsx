@@ -224,6 +224,7 @@ export default function WorkOrders() {
                   location: workOrder.location || "",
                   priority: workOrder.priority as "critical" | "high" | "medium" | "low",
                   status: workOrder.status as "open" | "in-progress" | "pending" | "completed",
+                  createdBy: workOrder.creator_name,
                   dueDate: workOrder.due_date || undefined,
                   createdAt: formatDistanceToNow(new Date(workOrder.created_at), { addSuffix: true }),
                 }}
