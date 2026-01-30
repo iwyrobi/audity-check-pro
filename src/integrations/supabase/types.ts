@@ -399,6 +399,35 @@ export type Database = {
           },
         ]
       }
+      work_order_completers: {
+        Row: {
+          completed_at: string
+          id: string
+          user_id: string
+          work_order_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          user_id: string
+          work_order_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          user_id?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_completers_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_orders: {
         Row: {
           assigned_to: string | null
