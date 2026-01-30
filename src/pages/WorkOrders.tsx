@@ -5,15 +5,28 @@ import { CreateWorkOrderModal } from "@/components/workorders/CreateWorkOrderMod
 import { WorkOrderDetailModal } from "@/components/workorders/WorkOrderDetailModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, SlidersHorizontal, Loader2, LayoutGrid, List, User } from "lucide-react";
+import { Plus, Search, SlidersHorizontal, Loader2, LayoutGrid, List, User, Calendar } from "lucide-react";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, startOfDay, startOfWeek, startOfMonth, isAfter } from "date-fns";
 import { useSearchParams } from "react-router-dom";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const statusFilters = ["All", "Open", "In Progress", "Pending", "Completed"];
 const priorityFilters = ["All Priorities", "Critical", "High", "Medium", "Low"];
+const dateFilters = [
+  { value: "today", label: "Today" },
+  { value: "this-week", label: "This Week" },
+  { value: "this-month", label: "This Month" },
+  { value: "all", label: "All Time" },
+];
 
 type ViewMode = "grid" | "list";
 
@@ -22,6 +35,7 @@ export default function WorkOrders() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedPriority, setSelectedPriority] = useState("All Priorities");
+  const [selectedDateRange, setSelectedDateRange] = useState("today");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<typeof workOrders[0] | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -30,6 +44,19 @@ export default function WorkOrders() {
   const { workOrders, loading, createWorkOrder, updateWorkOrder } = useWorkOrders();
   const { departments } = useDepartments();
   const { user, profile, isAdmin } = useAuth();
+
+  const getDateRangeStart = () => {
+    switch (selectedDateRange) {
+      case "today":
+        return startOfDay(new Date());
+      case "this-week":
+        return startOfWeek(new Date());
+      case "this-month":
+        return startOfMonth(new Date());
+      default:
+        return null;
+    }
+  };
 
   const filteredWorkOrders = workOrders.filter((wo) => {
     const matchesSearch = 
@@ -50,7 +77,10 @@ export default function WorkOrders() {
     
     const matchesMyWorkOrders = !showMyWorkOrders || wo.created_by === user?.id;
     
-    return matchesSearch && matchesStatus && matchesPriority && matchesMyWorkOrders;
+    const dateRangeStart = getDateRangeStart();
+    const matchesDateRange = !dateRangeStart || isAfter(new Date(wo.created_at), dateRangeStart);
+    
+    return matchesSearch && matchesStatus && matchesPriority && matchesMyWorkOrders && matchesDateRange;
   });
 
   const myWorkOrdersCount = workOrders.filter(wo => wo.created_by === user?.id).length;
@@ -188,6 +218,21 @@ export default function WorkOrders() {
                 </option>
               ))}
             </select>
+
+            {/* Date Range Filter */}
+            <Select value={selectedDateRange} onValueChange={setSelectedDateRange}>
+              <SelectTrigger className="w-[140px] bg-secondary border-0">
+                <Calendar className="w-4 h-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {dateFilters.map((filter) => (
+                  <SelectItem key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             
             {/* My Work Orders Toggle */}
             <button
