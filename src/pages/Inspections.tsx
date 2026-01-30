@@ -13,8 +13,9 @@ import {
   AlertTriangle,
   Loader2,
   Calendar,
-  User,
   Building2,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useInspections, InspectionDB } from "@/hooks/useInspections";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,9 +27,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Inspections() {
   const navigate = useNavigate();
@@ -39,6 +47,10 @@ export default function Inspections() {
   const { isAdmin } = useAuth();
   const { departments } = useDepartments();
 
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("drafts");
+  const [exporting, setExporting] = useState(false);
+
   const filteredInspections = inspections.filter((inspection) => {
     const matchesSearch = inspection.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDepartment = selectedDepartmentId === "all" || inspection.department_id === selectedDepartmentId;
@@ -47,6 +59,137 @@ export default function Inspections() {
 
   const draftInspections = filteredInspections.filter((i) => i.status === "in-progress");
   const completedInspections = filteredInspections.filter((i) => i.status === "completed");
+
+  const getExportData = () => {
+    const dataToExport = activeTab === "drafts" ? draftInspections : completedInspections;
+    return dataToExport.map((inspection) => {
+      const department = departments.find((d) => d.id === inspection.department_id);
+      return {
+        Title: inspection.title,
+        Status: inspection.status === "completed" ? "Completed" : "Draft",
+        Department: department?.name || "Unknown",
+        Score: inspection.percentage !== null ? `${Math.round(inspection.percentage)}%` : "N/A",
+        Date: format(new Date(inspection.created_at), "MMM d, yyyy"),
+      };
+    });
+  };
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const XLSX = await import("xlsx");
+      const data = getExportData();
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Inspections");
+      
+      // Auto-size columns
+      const colWidths = [
+        { wch: 30 }, // Title
+        { wch: 12 }, // Status
+        { wch: 20 }, // Department
+        { wch: 10 }, // Score
+        { wch: 15 }, // Date
+      ];
+      worksheet["!cols"] = colWidths;
+      
+      const fileName = `inspections-${activeTab}-${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      
+      toast({
+        title: "Export Complete",
+        description: `${data.length} inspections exported to Excel`,
+      });
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export to Excel. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    setExporting(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const data = getExportData();
+      
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
+      
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 15;
+      
+      // Title
+      pdf.setFontSize(18);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`Inspections Report - ${activeTab === "drafts" ? "Drafts" : "Completed"}`, margin, 20);
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Generated on ${format(new Date(), "MMMM d, yyyy")}`, margin, 28);
+      
+      // Table headers
+      const headers = ["Title", "Status", "Department", "Score", "Date"];
+      const colWidths = [80, 30, 50, 25, 35];
+      let startX = margin;
+      let startY = 40;
+      
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(margin, startY - 5, pageWidth - margin * 2, 10, "F");
+      
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      headers.forEach((header, i) => {
+        pdf.text(header, startX, startY);
+        startX += colWidths[i];
+      });
+      
+      // Table rows
+      pdf.setFont("helvetica", "normal");
+      startY += 10;
+      
+      data.forEach((row, index) => {
+        if (startY > 180) {
+          pdf.addPage();
+          startY = 20;
+        }
+        
+        startX = margin;
+        const values = [row.Title, row.Status, row.Department, row.Score, row.Date];
+        values.forEach((value, i) => {
+          const text = value.length > 35 ? value.substring(0, 32) + "..." : value;
+          pdf.text(text, startX, startY);
+          startX += colWidths[i];
+        });
+        startY += 8;
+      });
+      
+      const fileName = `inspections-${activeTab}-${format(new Date(), "yyyy-MM-dd")}.pdf`;
+      pdf.save(fileName);
+      
+      toast({
+        title: "Export Complete",
+        description: `${data.length} inspections exported to PDF`,
+      });
+    } catch (error) {
+      console.error("Error exporting to PDF:", error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export to PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleResume = (inspection: InspectionDB) => {
     // Navigate to run inspection with the inspection data
@@ -227,17 +370,42 @@ export default function Inspections() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="drafts" className="w-full">
-          <TabsList>
-            <TabsTrigger value="drafts" className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Drafts ({draftInspections.length})
-            </TabsTrigger>
-            <TabsTrigger value="completed" className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4" />
-              Completed ({completedInspections.length})
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+            <TabsList>
+              <TabsTrigger value="drafts" className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Drafts ({draftInspections.length})
+              </TabsTrigger>
+              <TabsTrigger value="completed" className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                Completed ({completedInspections.length})
+              </TabsTrigger>
+            </TabsList>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={exporting} className="flex items-center gap-2">
+                  {exporting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  Export List
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover">
+                <DropdownMenuItem onClick={handleExportPDF} className="flex items-center gap-2 cursor-pointer">
+                  <FileText className="w-4 h-4" />
+                  Export to PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportExcel} className="flex items-center gap-2 cursor-pointer">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Export to Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
           <TabsContent value="drafts" className="mt-4">
             {draftInspections.length === 0 ? (
