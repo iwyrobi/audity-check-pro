@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDepartments } from "@/hooks/useDepartments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -27,7 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, Pencil, Search, Loader2, Shield, Building2 } from "lucide-react";
+import { Users, Pencil, Search, Loader2, Building2, Plus, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface UserWithProfile {
@@ -47,9 +48,18 @@ export function UserManagement() {
   const [users, setUsers] = useState<UserWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithProfile | null>(null);
   const [formData, setFormData] = useState({ department_id: "", role: "" });
+  const [createFormData, setCreateFormData] = useState({
+    email: "",
+    password: "",
+    full_name: "",
+    department_id: "",
+    role: "user",
+  });
+  const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const fetchUsers = async () => {
@@ -115,7 +125,19 @@ export function UserManagement() {
       department_id: user.department_id || "",
       role: user.roles.includes("admin") ? "admin" : user.roles.includes("department_head") ? "department_head" : "user",
     });
-    setIsModalOpen(true);
+    setIsEditModalOpen(true);
+  };
+
+  const handleOpenCreate = () => {
+    setCreateFormData({
+      email: "",
+      password: "",
+      full_name: "",
+      department_id: "",
+      role: "user",
+    });
+    setShowPassword(false);
+    setIsCreateModalOpen(true);
   };
 
   const handleSave = async () => {
@@ -150,12 +172,66 @@ export function UserManagement() {
 
       toast({ title: "User updated successfully" });
       await fetchUsers();
-      setIsModalOpen(false);
+      setIsEditModalOpen(false);
     } catch (error: any) {
       console.error("Error updating user:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to update user",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!createFormData.email || !createFormData.password) {
+      toast({
+        title: "Error",
+        description: "Email and password are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (createFormData.password.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await supabase.functions.invoke("create-user", {
+        body: {
+          email: createFormData.email,
+          password: createFormData.password,
+          full_name: createFormData.full_name,
+          department_id: createFormData.department_id || null,
+          role: createFormData.role,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to create user");
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      toast({ title: "User created successfully" });
+      await fetchUsers();
+      setIsCreateModalOpen(false);
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create user",
         variant: "destructive",
       });
     } finally {
@@ -201,19 +277,25 @@ export function UserManagement() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-primary" />
           <h3 className="font-semibold">Users & Roles</h3>
         </div>
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search users..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex items-center gap-3 flex-1 justify-end">
+          <div className="relative max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search users..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Button onClick={handleOpenCreate}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add User
+          </Button>
         </div>
       </div>
 
@@ -275,18 +357,18 @@ export function UserManagement() {
       )}
 
       {/* Edit User Dialog */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Name</label>
+              <Label className="mb-1.5 block">Name</Label>
               <Input value={editingUser?.full_name || "—"} disabled />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Department</label>
+              <Label className="mb-1.5 block">Department</Label>
               <Select
                 value={formData.department_id || "none"}
                 onValueChange={(value) => setFormData((prev) => ({ ...prev, department_id: value === "none" ? "" : value }))}
@@ -305,7 +387,7 @@ export function UserManagement() {
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Role</label>
+              <Label className="mb-1.5 block">Role</Label>
               <Select
                 value={formData.role}
                 onValueChange={(value) => setFormData((prev) => ({ ...prev, role: value }))}
@@ -322,12 +404,103 @@ export function UserManagement() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create User Dialog */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="mb-1.5 block">Full Name</Label>
+              <Input
+                value={createFormData.full_name}
+                onChange={(e) => setCreateFormData((prev) => ({ ...prev, full_name: e.target.value }))}
+                placeholder="Enter full name"
+              />
+            </div>
+            <div>
+              <Label className="mb-1.5 block">Email</Label>
+              <Input
+                type="email"
+                value={createFormData.email}
+                onChange={(e) => setCreateFormData((prev) => ({ ...prev, email: e.target.value }))}
+                placeholder="Enter email address"
+              />
+            </div>
+            <div>
+              <Label className="mb-1.5 block">Password</Label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={createFormData.password}
+                  onChange={(e) => setCreateFormData((prev) => ({ ...prev, password: e.target.value }))}
+                  placeholder="Enter password (min 6 characters)"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label className="mb-1.5 block">Department</Label>
+              <Select
+                value={createFormData.department_id || "none"}
+                onValueChange={(value) => setCreateFormData((prev) => ({ ...prev, department_id: value === "none" ? "" : value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Department</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="mb-1.5 block">Role</Label>
+              <Select
+                value={createFormData.role}
+                onValueChange={(value) => setCreateFormData((prev) => ({ ...prev, role: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="department_head">Department Head</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateUser} disabled={saving}>
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Create User
             </Button>
           </DialogFooter>
         </DialogContent>
