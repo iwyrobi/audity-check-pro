@@ -76,14 +76,23 @@ export function CreateWorkOrderModal({
 
   const { profile, isAdmin } = useAuth();
 
-  // Fetch users for assignment
+  // Determine which department to filter users by
+  const targetDepartmentId = selectedDepartment || profile?.department_id;
+
+  // Fetch users for assignment - only from the target department
   useEffect(() => {
     const fetchUsers = async () => {
+      if (!targetDepartmentId) {
+        setUsers([]);
+        return;
+      }
+
       setLoadingUsers(true);
       try {
         const { data, error } = await supabase
           .from("profiles")
           .select("user_id, full_name, department_id")
+          .eq("department_id", targetDepartmentId)
           .order("full_name");
 
         if (error) throw error;
@@ -98,7 +107,7 @@ export function CreateWorkOrderModal({
     if (open) {
       fetchUsers();
     }
-  }, [open]);
+  }, [open, targetDepartmentId]);
 
   useEffect(() => {
     if (open && defaultValues) {
@@ -141,10 +150,7 @@ export function CreateWorkOrderModal({
     setUploadedMedia((prev) => prev.filter((m) => m.id !== mediaId));
   };
 
-  // Filter users by selected department if department is selected
-  const filteredUsers = selectedDepartment
-    ? users.filter((u) => u.department_id === selectedDepartment)
-    : users;
+  // Users are already filtered by department from the query
 
   const showDepartmentSelector = isAdmin && departments.length > 0;
 
@@ -218,7 +224,7 @@ export function CreateWorkOrderModal({
                 <SelectValue placeholder={loadingUsers ? "Loading users..." : "Select user (optional)"} />
               </SelectTrigger>
               <SelectContent>
-                {filteredUsers.map((user) => (
+                {users.map((user) => (
                   <SelectItem key={user.user_id} value={user.user_id}>
                     {user.full_name || "Unnamed User"}
                   </SelectItem>
