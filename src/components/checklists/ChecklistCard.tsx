@@ -2,6 +2,7 @@ import { ClipboardCheck, MoreVertical, Calendar, User, Play } from "lucide-react
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { ChecklistTemplateDB } from "@/hooks/useChecklistTemplates";
 
 export interface Checklist {
   id: string;
@@ -16,6 +17,7 @@ export interface Checklist {
 
 interface ChecklistCardProps {
   checklist: Checklist;
+  templateData?: ChecklistTemplateDB;
   onClick?: () => void;
 }
 
@@ -25,12 +27,19 @@ const statusStyles = {
   archived: "status-badge-info",
 };
 
-export function ChecklistCard({ checklist, onClick }: ChecklistCardProps) {
+export function ChecklistCard({ checklist, templateData, onClick }: ChecklistCardProps) {
   const navigate = useNavigate();
 
   const handleStartInspection = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate("/run-inspection");
+    // Pass template data via state for the inspection
+    navigate("/run-inspection", { 
+      state: { 
+        templateId: checklist.id,
+        templateName: checklist.title,
+        templateData 
+      } 
+    });
   };
 
   return (
@@ -57,7 +66,7 @@ export function ChecklistCard({ checklist, onClick }: ChecklistCardProps) {
         </div>
       </div>
 
-      <h3 className="font-semibold text-foreground mb-1">{checklist.title}</h3>
+      <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{checklist.title}</h3>
       <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
         {checklist.description}
       </p>

@@ -1,70 +1,12 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { ChecklistCard, Checklist } from "@/components/checklists/ChecklistCard";
-import { CreateTemplateModal, ChecklistTemplate } from "@/components/checklists/CreateTemplateModal";
+import { ChecklistCard } from "@/components/checklists/ChecklistCard";
+import { CreateTemplateModal } from "@/components/checklists/CreateTemplateModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter, Grid, List } from "lucide-react";
-
-const initialChecklists: Checklist[] = [
-  {
-    id: "1",
-    title: "Daily Safety Inspection",
-    description: "Comprehensive daily safety check for warehouse operations including PPE verification, hazard identification, and emergency equipment status.",
-    category: "Safety",
-    itemCount: 24,
-    lastUsed: "Today",
-    assignedTo: "All Teams",
-    status: "active",
-  },
-  {
-    id: "2",
-    title: "Equipment Maintenance",
-    description: "Monthly equipment inspection and maintenance checklist for all machinery and tools.",
-    category: "Maintenance",
-    itemCount: 18,
-    lastUsed: "3 days ago",
-    assignedTo: "Maintenance Team",
-    status: "active",
-  },
-  {
-    id: "3",
-    title: "Quality Control Audit",
-    description: "Production line quality control inspection covering product specifications and compliance.",
-    category: "Quality",
-    itemCount: 32,
-    lastUsed: "1 week ago",
-    assignedTo: "QC Team",
-    status: "active",
-  },
-  {
-    id: "4",
-    title: "Fire Safety Compliance",
-    description: "Monthly fire safety inspection including extinguishers, exits, and alarm systems.",
-    category: "Safety",
-    itemCount: 15,
-    lastUsed: "2 weeks ago",
-    status: "active",
-  },
-  {
-    id: "5",
-    title: "Vehicle Pre-Trip Inspection",
-    description: "Pre-trip vehicle safety checklist for fleet vehicles before departure.",
-    category: "Fleet",
-    itemCount: 22,
-    lastUsed: "Yesterday",
-    assignedTo: "Drivers",
-    status: "active",
-  },
-  {
-    id: "6",
-    title: "Hygiene & Sanitation",
-    description: "Daily hygiene and sanitation checklist for food handling areas.",
-    category: "Hygiene",
-    itemCount: 28,
-    status: "draft",
-  },
-];
+import { Plus, Search, Filter, Grid, List, Loader2 } from "lucide-react";
+import { useChecklistTemplates } from "@/hooks/useChecklistTemplates";
+import { useAuth } from "@/contexts/AuthContext";
 
 const categories = ["All", "Safety", "Maintenance", "Quality", "Fleet", "Hygiene", "IT", "HR"];
 
@@ -73,32 +15,53 @@ export default function Checklists() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [checklists, setChecklists] = useState<Checklist[]>(initialChecklists);
+  
+  const { templates, loading, createTemplate } = useChecklistTemplates();
+  const { profile, isDepartmentHead, isAdmin } = useAuth();
 
-  const filteredChecklists = checklists.filter((checklist) => {
-    const matchesSearch = checklist.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      checklist.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || checklist.category === selectedCategory;
+  const canCreateTemplates = isAdmin || isDepartmentHead;
+
+  const filteredTemplates = templates.filter((template) => {
+    const matchesSearch = 
+      template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (template.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+    const matchesCategory = selectedCategory === "All" || template.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const handleSaveTemplate = (template: ChecklistTemplate) => {
-    const totalQuestions = template.sections.reduce(
-      (acc, s) => acc + s.questions.length,
+  const handleSaveTemplate = async (templateData: {
+    title: string;
+    description: string;
+    category: string;
+    sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[];
+  }) => {
+    const result = await createTemplate(
+      templateData.title,
+      templateData.description,
+      templateData.category,
+      templateData.sections
+    );
+    if (result) {
+      setIsCreateModalOpen(false);
+    }
+  };
+
+  const getQuestionCount = (template: typeof templates[0]) => {
+    return (template.sections || []).reduce(
+      (acc, section) => acc + (section.questions?.length || 0),
       0
     );
-    
-    const newChecklist: Checklist = {
-      id: template.id,
-      title: template.title,
-      description: template.description,
-      category: template.category,
-      itemCount: totalQuestions,
-      status: "active",
-    };
-    
-    setChecklists((prev) => [newChecklist, ...prev]);
   };
+
+  if (loading) {
+    return (
+      <AppLayout title="Checklists">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout title="Checklists">
@@ -134,13 +97,15 @@ export default function Checklists() {
                 <List className="w-4 h-4" />
               </button>
             </div>
-            <Button 
-              className="bg-accent text-accent-foreground hover:bg-accent/90"
-              onClick={() => setIsCreateModalOpen(true)}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Checklist
-            </Button>
+            {canCreateTemplates && (
+              <Button 
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+                onClick={() => setIsCreateModalOpen(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Checklist
+              </Button>
+            )}
           </div>
         </div>
 
@@ -161,25 +126,47 @@ export default function Checklists() {
           ))}
         </div>
 
+        {/* Not assigned to department warning */}
+        {!profile?.department_id && (
+          <div className="p-4 bg-warning/10 border border-warning/30 rounded-lg text-warning">
+            You are not assigned to a department. Please contact an administrator.
+          </div>
+        )}
+
         {/* Checklists Grid */}
         <div className={viewMode === "grid" 
           ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
           : "space-y-3"
         }>
-          {filteredChecklists.map((checklist, index) => (
+          {filteredTemplates.map((template, index) => (
             <div
-              key={checklist.id}
+              key={template.id}
               className="animate-slide-up"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <ChecklistCard checklist={checklist} />
+              <ChecklistCard 
+                checklist={{
+                  id: template.id,
+                  title: template.name,
+                  description: template.description || "",
+                  category: template.category || "Other",
+                  itemCount: getQuestionCount(template),
+                  status: "active",
+                }}
+                templateData={template}
+              />
             </div>
           ))}
         </div>
 
-        {filteredChecklists.length === 0 && (
+        {filteredTemplates.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No checklists found matching your criteria.</p>
+            <p className="text-muted-foreground">
+              {templates.length === 0 
+                ? "No checklists yet. Create your first template to get started."
+                : "No checklists found matching your criteria."
+              }
+            </p>
           </div>
         )}
       </div>
