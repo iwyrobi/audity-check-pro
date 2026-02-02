@@ -468,7 +468,7 @@ export function WorkOrderDetailModal({
             {workOrder.due_date && (
               <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
-                Due: {format(new Date(workOrder.due_date), "MMM d, yyyy")}
+                Due: {format(new Date(workOrder.due_date), "MMM d, yyyy h:mm a")}
               </span>
             )}
           </div>

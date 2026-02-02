@@ -111,7 +111,7 @@ export default function Inspections() {
         Status: inspection.status === "completed" ? "Completed" : "Draft",
         Department: department?.name || "Unknown",
         Score: inspection.percentage !== null ? `${Math.round(inspection.percentage)}%` : "N/A",
-        Date: format(new Date(inspection.created_at), "MMM d, yyyy"),
+        Date: format(new Date(inspection.created_at), "MMM d, yyyy h:mm a"),
       };
     });
   };
@@ -290,12 +290,12 @@ export default function Inspections() {
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mb-4">
           <span className="inline-flex items-center gap-1">
             <Calendar className="w-3.5 h-3.5" />
-            {format(new Date(inspection.created_at), "MMM d, yyyy")}
+            {format(new Date(inspection.created_at), "MMM d, yyyy h:mm a")}
           </span>
           {inspection.completed_at && (
             <span className="inline-flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              {format(new Date(inspection.completed_at), "MMM d, yyyy")}
+              {format(new Date(inspection.completed_at), "MMM d, yyyy h:mm a")}
             </span>
           )}
         </div>

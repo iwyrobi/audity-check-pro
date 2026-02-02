@@ -145,6 +145,10 @@ export function WorkOrderCard({ workOrder, onClick, variant = "grid" }: WorkOrde
             Due: {workOrder.dueDate}
           </span>
         )}
+        <span className="inline-flex items-center gap-1">
+          <Clock className="w-3.5 h-3.5" />
+          Created: {workOrder.createdAt}
+        </span>
         {workOrder.assignedTo && (
           <span className="inline-flex items-center gap-1">
             <User className="w-3.5 h-3.5" />

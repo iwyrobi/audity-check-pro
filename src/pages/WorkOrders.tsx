@@ -375,7 +375,7 @@ export default function WorkOrders() {
                   status: workOrder.status as "open" | "in-progress" | "pending" | "completed",
                   createdBy: workOrder.creator_name,
                   dueDate: workOrder.due_date || undefined,
-                  createdAt: formatDistanceToNow(new Date(workOrder.created_at), { addSuffix: true }),
+                  createdAt: format(new Date(workOrder.created_at), "MMM d, yyyy h:mm a"),
                 }}
                 onClick={() => setSelectedWorkOrder(workOrder)}
                 variant={viewMode}
