@@ -61,6 +61,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          parent_id: string | null
           updated_at: string
         }
         Insert: {
@@ -68,6 +69,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          parent_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -75,9 +77,18 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          parent_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "departments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       inspection_answers: {
         Row: {
@@ -502,6 +513,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_department_ancestors: {
+        Args: { _department_id: string }
+        Returns: string[]
+      }
+      get_department_descendants: {
+        Args: { _department_id: string }
+        Returns: string[]
+      }
       get_profile_name: { Args: { _user_id: string }; Returns: string }
       get_user_department_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
