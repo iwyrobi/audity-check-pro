@@ -320,6 +320,77 @@ export function WorkOrderDetailModal({
     }
   };
 
+  const logStatusChange = async (oldStatus: string, newStatus: string) => {
+    if (!workOrder || !user || oldStatus === newStatus) return;
+    
+    const statusLabels: Record<string, string> = {
+      "open": "Open",
+      "in-progress": "In Progress",
+      "pending": "Pending",
+      "completed": "Completed",
+    };
+    
+    const logMessage = `📋 Status changed from "${statusLabels[oldStatus] || oldStatus}" to "${statusLabels[newStatus] || newStatus}"`;
+    
+    try {
+      await supabase
+        .from("work_order_comments")
+        .insert({
+          work_order_id: workOrder.id,
+          comment: logMessage,
+          created_by: user.id,
+        });
+    } catch (error) {
+      console.error("Error logging status change:", error);
+    }
+  };
+
+  const logPriorityChange = async (oldPriority: string, newPriority: string) => {
+    if (!workOrder || !user || oldPriority === newPriority) return;
+    
+    const priorityLabels: Record<string, string> = {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+    };
+    
+    const logMessage = `⚡ Priority changed from "${priorityLabels[oldPriority] || oldPriority}" to "${priorityLabels[newPriority] || newPriority}"`;
+    
+    try {
+      await supabase
+        .from("work_order_comments")
+        .insert({
+          work_order_id: workOrder.id,
+          comment: logMessage,
+          created_by: user.id,
+        });
+    } catch (error) {
+      console.error("Error logging priority change:", error);
+    }
+  };
+
+  const logDepartmentChange = async (oldDeptId: string, newDeptId: string) => {
+    if (!workOrder || !user || oldDeptId === newDeptId) return;
+    
+    const oldDept = departments.find(d => d.id === oldDeptId);
+    const newDept = departments.find(d => d.id === newDeptId);
+    
+    const logMessage = `🏢 Department reassigned from "${oldDept?.name || 'Unknown'}" to "${newDept?.name || 'Unknown'}"`;
+    
+    try {
+      await supabase
+        .from("work_order_comments")
+        .insert({
+          work_order_id: workOrder.id,
+          comment: logMessage,
+          created_by: user.id,
+        });
+    } catch (error) {
+      console.error("Error logging department change:", error);
+    }
+  };
+
   const handleSave = async () => {
     if (!workOrder) return;
     
@@ -342,6 +413,19 @@ export function WorkOrderDetailModal({
           setSaving(false);
           return;
         }
+        
+        // Log department change
+        await logDepartmentChange(workOrder.department_id, assignedDepartment);
+      }
+
+      // Log status change
+      if (status !== workOrder.status) {
+        await logStatusChange(workOrder.status, status);
+      }
+      
+      // Log priority change
+      if (priority !== workOrder.priority) {
+        await logPriorityChange(workOrder.priority, priority);
       }
 
       // Update other fields (status, priority, completed_at)
