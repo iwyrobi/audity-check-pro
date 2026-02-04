@@ -82,6 +82,7 @@ export function useWorkOrders() {
     linkedInspectionId?: string;
     linkedDefectQuestion?: string;
     departmentId?: string;
+    tempWorkOrderId?: string;
   }) => {
     if (!user || !profile?.department_id) {
       toast({
@@ -114,6 +115,21 @@ export function useWorkOrders() {
         .single();
 
       if (error) throw error;
+
+      // If there was a temp ID used for media uploads, update those media records
+      // to point to the real work order ID
+      if (data.tempWorkOrderId && workOrder) {
+        const { error: mediaError } = await supabase
+          .from("media")
+          .update({ associated_id: workOrder.id })
+          .eq("associated_id", data.tempWorkOrderId)
+          .eq("associated_type", "work_order");
+
+        if (mediaError) {
+          console.error("Error updating media associations:", mediaError);
+          // Don't fail the whole operation, just log the error
+        }
+      }
 
       await fetchWorkOrders();
       toast({ title: "Work order created!" });

@@ -30,7 +30,7 @@ interface CreateWorkOrderModalProps {
     priority?: string;
     dueDate?: string;
     departmentId?: string;
-    mediaFiles?: UploadedMedia[];
+    tempWorkOrderId?: string;
   }) => void;
   defaultValues?: {
     title?: string;
@@ -83,7 +83,7 @@ export function CreateWorkOrderModal({
       priority,
       dueDate: dueDate || undefined,
       departmentId: selectedDepartment || undefined,
-      mediaFiles: uploadedMedia,
+      tempWorkOrderId: uploadedMedia.length > 0 ? tempWorkOrderId : undefined,
     });
 
     // Reset form
