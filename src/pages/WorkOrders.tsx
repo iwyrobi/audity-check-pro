@@ -127,6 +127,7 @@ export default function WorkOrders() {
     priority?: string;
     dueDate?: string;
     departmentId?: string;
+    tempWorkOrderId?: string;
   }) => {
     const result = await createWorkOrder(data);
     if (result) {
