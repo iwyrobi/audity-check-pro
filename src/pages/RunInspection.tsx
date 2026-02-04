@@ -4,14 +4,16 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { InspectionRunner, QuestionAnswer } from "@/components/checklists/InspectionRunner";
 import { CreateWorkOrderFromDefect } from "@/components/checklists/CreateWorkOrderFromDefect";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save, Send, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Send, CheckCircle2, AlertTriangle, Loader2, WifiOff } from "lucide-react";
 import { TemplateSection, QuestionItem } from "@/components/checklists/TemplateBuilder";
 import { useInspections } from "@/hooks/useInspections";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { ChecklistTemplateDB } from "@/hooks/useChecklistTemplates";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 export default function RunInspection() {
   const location = useLocation();
@@ -25,6 +27,7 @@ export default function RunInspection() {
 
   const { createInspection, saveInspectionAnswers, completeInspection } = useInspections();
   const { createWorkOrder } = useWorkOrders();
+  const { isOnline, saveInspectionOffline, getOfflineInspection } = useOfflineSync();
 
   const [inspectionId, setInspectionId] = useState<string | null>(resumeInspectionId || null);
   const [inspectionTitle, setInspectionTitle] = useState(templateName || "Daily Safety Inspection");
@@ -45,6 +48,9 @@ export default function RunInspection() {
 
       setLoading(true);
       try {
+        // First check if we have offline data for this inspection
+        const offlineData = getOfflineInspection(resumeInspectionId);
+        
         // Fetch the template with sections and questions
         const { data: templateResult, error: templateError } = await supabase
           .from("checklist_templates")
@@ -89,31 +95,49 @@ export default function RunInspection() {
           setSections(convertedSections);
         }
 
-        // Fetch saved answers for this inspection
-        const { data: answersData, error: answersError } = await supabase
-          .from("inspection_answers")
-          .select("*")
-          .eq("inspection_id", resumeInspectionId);
-
-        if (answersError) throw answersError;
-
-        // Convert answers to the format expected by the component
-        const loadedAnswers: Record<string, QuestionAnswer> = {};
-        (answersData || []).forEach((a) => {
-          if (a.question_id) {
-            loadedAnswers[a.question_id] = {
-              questionId: a.question_id,
+        // Prioritize offline data if available
+        if (offlineData) {
+          const loadedAnswers: Record<string, QuestionAnswer> = {};
+          offlineData.answers.forEach((a) => {
+            loadedAnswers[a.questionId] = {
+              questionId: a.questionId,
               value: a.answer === "yes" || a.answer === "no" || a.answer === "na" 
                 ? a.answer 
                 : isNaN(Number(a.answer)) ? a.answer : Number(a.answer),
-              score: a.score_earned || 0,
-              maxScore: a.max_score || 0,
-              isDefect: a.is_defect || false,
-              notes: a.notes || undefined,
+              score: a.scoreEarned,
+              maxScore: a.maxScore,
+              isDefect: a.isDefect,
+              notes: a.notes,
             };
-          }
-        });
-        setAnswers(loadedAnswers);
+          });
+          setAnswers(loadedAnswers);
+          toast.info("Loaded offline saved data");
+        } else {
+          // Fetch saved answers from server
+          const { data: answersData, error: answersError } = await supabase
+            .from("inspection_answers")
+            .select("*")
+            .eq("inspection_id", resumeInspectionId);
+
+          if (answersError) throw answersError;
+
+          const loadedAnswers: Record<string, QuestionAnswer> = {};
+          (answersData || []).forEach((a) => {
+            if (a.question_id) {
+              loadedAnswers[a.question_id] = {
+                questionId: a.question_id,
+                value: a.answer === "yes" || a.answer === "no" || a.answer === "na" 
+                  ? a.answer 
+                  : isNaN(Number(a.answer)) ? a.answer : Number(a.answer),
+                score: a.score_earned || 0,
+                maxScore: a.max_score || 0,
+                isDefect: a.is_defect || false,
+                notes: a.notes || undefined,
+              };
+            }
+          });
+          setAnswers(loadedAnswers);
+        }
 
       } catch (error) {
         console.error("Error loading resume data:", error);
@@ -124,7 +148,7 @@ export default function RunInspection() {
     };
 
     loadResumeData();
-  }, [resumeInspectionId, templateId]);
+  }, [resumeInspectionId, templateId, getOfflineInspection]);
 
   // Convert template data to sections format if passed via navigation (new inspection)
   useEffect(() => {
@@ -225,8 +249,23 @@ export default function RunInspection() {
       };
     });
 
-    await saveInspectionAnswers(inspectionId, answerData);
-    toast.success("Draft saved successfully");
+    if (isOnline) {
+      await saveInspectionAnswers(inspectionId, answerData);
+      toast.success("Draft saved successfully");
+    } else {
+      // Save offline
+      saveInspectionOffline({
+        inspectionId,
+        title: inspectionTitle,
+        templateId: templateId || "",
+        answers: answerData,
+        totalScore,
+        maxScore,
+        isComplete: false,
+      });
+      toast.success("Draft saved offline - will sync when online");
+    }
+    
     setSaving(false);
   };
 
@@ -239,7 +278,6 @@ export default function RunInspection() {
     setSaving(true);
 
     if (inspectionId) {
-      // Save to database
       const answerData = Object.entries(answers).map(([questionId, answer]) => {
         const question = sections
           .flatMap((s) => s.questions)
@@ -256,8 +294,22 @@ export default function RunInspection() {
         };
       });
 
-      await saveInspectionAnswers(inspectionId, answerData);
-      await completeInspection(inspectionId, totalScore, maxScore);
+      if (isOnline) {
+        await saveInspectionAnswers(inspectionId, answerData);
+        await completeInspection(inspectionId, totalScore, maxScore);
+      } else {
+        // Save for offline sync
+        saveInspectionOffline({
+          inspectionId,
+          title: inspectionTitle,
+          templateId: templateId || "",
+          answers: answerData,
+          totalScore,
+          maxScore,
+          isComplete: true,
+        });
+        toast.success("Inspection saved offline - will sync when online");
+      }
     } else {
       toast.success("Inspection submitted successfully!");
     }
@@ -293,6 +345,18 @@ export default function RunInspection() {
   return (
     <AppLayout title={inspectionTitle}>
       <div className="space-y-6">
+        {/* Offline Banner */}
+        {!isOnline && (
+          <div className="flex items-center gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg text-warning">
+            <WifiOff className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-sm">You're offline</p>
+              <p className="text-xs opacity-80">Changes will be saved locally and synced when you're back online</p>
+            </div>
+            <Badge variant="outline" className="border-warning text-warning">Offline Mode</Badge>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <Button variant="ghost" onClick={() => navigate("/checklists")}>
