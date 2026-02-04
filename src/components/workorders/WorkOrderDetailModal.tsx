@@ -69,7 +69,7 @@ interface WorkOrderDetailModalProps {
     created_at: string;
   } | null;
   onUpdate: (id: string, updates: Record<string, any>) => Promise<boolean>;
-  departments?: { id: string; name: string }[];
+  departments?: { id: string; name: string; parent_id?: string | null; displayName?: string }[];
 }
 
 const statuses = [
@@ -539,7 +539,7 @@ export function WorkOrderDetailModal({
                 <SelectContent>
                   {departments.map((dept) => (
                     <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
+                      {dept.displayName || dept.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

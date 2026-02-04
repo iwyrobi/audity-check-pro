@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Department {
@@ -6,6 +6,11 @@ export interface Department {
   name: string;
   description: string | null;
   parent_id: string | null;
+}
+
+export interface HierarchicalDepartment extends Department {
+  level: number;
+  displayName: string;
 }
 
 export function useDepartments() {
@@ -29,13 +34,44 @@ export function useDepartments() {
     }
   };
 
+  // Build hierarchical list with indentation
+  const hierarchicalDepartments = useMemo((): HierarchicalDepartment[] => {
+    const result: HierarchicalDepartment[] = [];
+    
+    const addDepartment = (dept: Department, level: number) => {
+      const indent = level > 0 ? "└ ".padStart(level * 2 + 2, "  ") : "";
+      result.push({
+        ...dept,
+        level,
+        displayName: `${indent}${dept.name}`,
+      });
+      const children = departments.filter(d => d.parent_id === dept.id);
+      children.forEach(child => addDepartment(child, level + 1));
+    };
+    
+    // Start with root departments (no parent)
+    const rootDepartments = departments.filter(d => !d.parent_id);
+    rootDepartments.forEach(dept => addDepartment(dept, 0));
+    
+    return result;
+  }, [departments]);
+
+  // Get parent department name
+  const getParentName = (parentId: string | null | undefined): string | null => {
+    if (!parentId) return null;
+    const parent = departments.find(d => d.id === parentId);
+    return parent?.name || null;
+  };
+
   useEffect(() => {
     fetchDepartments();
   }, []);
 
   return {
     departments,
+    hierarchicalDepartments,
     loading,
     fetchDepartments,
+    getParentName,
   };
 }
