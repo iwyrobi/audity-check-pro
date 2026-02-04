@@ -16,6 +16,9 @@ export interface InspectionDB {
   created_by: string;
   completed_at: string | null;
   created_at: string;
+  creator_name?: string;
+  defect_count?: number;
+  template_name?: string;
 }
 
 export interface InspectionAnswerDB {
@@ -41,13 +44,50 @@ export function useInspections() {
 
     setLoading(true);
     try {
+      // Fetch inspections with template name
       const { data, error } = await supabase
         .from("inspections")
-        .select("*")
+        .select(`
+          *,
+          checklist_templates:template_id (name)
+        `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setInspections(data || []);
+
+      // Fetch creator names using security definer function
+      const creatorIds = [...new Set((data || []).map(i => i.created_by))];
+      const profileMap = new Map<string, string>();
+      
+      await Promise.all(
+        creatorIds.map(async (userId) => {
+          const { data: name } = await supabase.rpc("get_profile_name", { _user_id: userId });
+          profileMap.set(userId, name || "Unknown");
+        })
+      );
+
+      // Fetch defect counts for each inspection
+      const inspectionIds = (data || []).map(i => i.id);
+      const { data: answersData } = await supabase
+        .from("inspection_answers")
+        .select("inspection_id, is_defect")
+        .in("inspection_id", inspectionIds)
+        .eq("is_defect", true);
+
+      const defectCounts = new Map<string, number>();
+      (answersData || []).forEach(a => {
+        defectCounts.set(a.inspection_id, (defectCounts.get(a.inspection_id) || 0) + 1);
+      });
+
+      // Enrich inspections with creator names and defect counts
+      const enrichedData = (data || []).map(i => ({
+        ...i,
+        creator_name: profileMap.get(i.created_by) || "Unknown",
+        defect_count: defectCounts.get(i.id) || 0,
+        template_name: i.checklist_templates?.name || "N/A",
+      }));
+
+      setInspections(enrichedData);
     } catch (error: any) {
       console.error("Error fetching inspections:", error);
     } finally {
