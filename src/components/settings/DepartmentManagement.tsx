@@ -13,6 +13,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -20,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Building2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2, Loader2, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export function DepartmentManagement() {
@@ -30,19 +37,47 @@ export function DepartmentManagement() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
-  const [formData, setFormData] = useState({ name: "", description: "" });
+  const [formData, setFormData] = useState({ name: "", description: "", parent_id: "" });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  // Get parent department name
+  const getParentName = (parentId: string | null | undefined) => {
+    if (!parentId) return null;
+    const parent = departments.find(d => d.id === parentId);
+    return parent?.name || null;
+  };
+
+  // Build hierarchical display name with indentation
+  const getHierarchicalDepartments = () => {
+    const result: { dept: Department; level: number }[] = [];
+    
+    const addDepartment = (dept: Department, level: number) => {
+      result.push({ dept, level });
+      const children = departments.filter(d => d.parent_id === dept.id);
+      children.forEach(child => addDepartment(child, level + 1));
+    };
+    
+    // Start with root departments (no parent)
+    const rootDepartments = departments.filter(d => !d.parent_id);
+    rootDepartments.forEach(dept => addDepartment(dept, 0));
+    
+    return result;
+  };
+
   const handleOpenCreate = () => {
     setEditingDepartment(null);
-    setFormData({ name: "", description: "" });
+    setFormData({ name: "", description: "", parent_id: "" });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (dept: Department) => {
     setEditingDepartment(dept);
-    setFormData({ name: dept.name, description: dept.description || "" });
+    setFormData({ 
+      name: dept.name, 
+      description: dept.description || "",
+      parent_id: dept.parent_id || ""
+    });
     setIsModalOpen(true);
   };
 
@@ -55,11 +90,19 @@ export function DepartmentManagement() {
     setSaving(true);
     try {
       if (editingDepartment) {
+        // Prevent setting parent to self or to a descendant
+        if (formData.parent_id === editingDepartment.id) {
+          toast({ title: "Department cannot be its own parent", variant: "destructive" });
+          setSaving(false);
+          return;
+        }
+
         const { error } = await supabase
           .from("departments")
           .update({
             name: formData.name.trim(),
             description: formData.description.trim() || null,
+            parent_id: formData.parent_id || null,
           })
           .eq("id", editingDepartment.id);
 
@@ -69,6 +112,7 @@ export function DepartmentManagement() {
         const { error } = await supabase.from("departments").insert({
           name: formData.name.trim(),
           description: formData.description.trim() || null,
+          parent_id: formData.parent_id || null,
         });
 
         if (error) throw error;
@@ -90,6 +134,17 @@ export function DepartmentManagement() {
   };
 
   const handleDelete = async (dept: Department) => {
+    // Check if department has children
+    const hasChildren = departments.some(d => d.parent_id === dept.id);
+    if (hasChildren) {
+      toast({
+        title: "Cannot delete",
+        description: "This department has sub-departments. Delete or reassign them first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!confirm(`Are you sure you want to delete "${dept.name}"? This cannot be undone.`)) {
       return;
     }
@@ -132,6 +187,8 @@ export function DepartmentManagement() {
     );
   }
 
+  const hierarchicalDepartments = getHierarchicalDepartments();
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -155,14 +212,23 @@ export function DepartmentManagement() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Parent</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="w-24">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {departments.map((dept) => (
+              {hierarchicalDepartments.map(({ dept, level }) => (
                 <TableRow key={dept.id}>
-                  <TableCell className="font-medium">{dept.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-1" style={{ paddingLeft: `${level * 20}px` }}>
+                      {level > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground" />}
+                      {dept.name}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {getParentName(dept.parent_id) || "—"}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {dept.description || "—"}
                   </TableCell>
@@ -214,6 +280,30 @@ export function DepartmentManagement() {
                 onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="e.g., Security, Engineering, Operations"
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Parent Department</label>
+              <Select 
+                value={formData.parent_id} 
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, parent_id: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="None (Top-level department)" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="">None (Top-level department)</SelectItem>
+                  {departments
+                    .filter(d => !editingDepartment || d.id !== editingDepartment.id)
+                    .map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Select a parent to create this as a sub-department
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Description</label>

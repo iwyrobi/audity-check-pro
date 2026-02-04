@@ -5,6 +5,7 @@ export interface Department {
   id: string;
   name: string;
   description: string | null;
+  parent_id: string | null;
 }
 
 export function useDepartments() {
@@ -16,7 +17,7 @@ export function useDepartments() {
     try {
       const { data, error } = await supabase
         .from("departments")
-        .select("id, name, description")
+        .select("id, name, description, parent_id")
         .order("name");
 
       if (error) throw error;
