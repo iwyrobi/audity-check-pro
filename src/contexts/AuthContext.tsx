@@ -7,6 +7,7 @@ interface Profile {
   id: string;
   user_id: string;
   department_id: string | null;
+  organization_id: string | null;
   full_name: string | null;
   avatar_url: string | null;
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useDepartments, Department } from "@/hooks/useDepartments";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 export function DepartmentManagement() {
   const { departments, loading, fetchDepartments } = useDepartments();
   const { isSuperAdmin } = useAuth();
+  const { subscription, canAddDepartment } = useSubscription();
   const { toast } = useToast();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -65,7 +67,18 @@ export function DepartmentManagement() {
     return result;
   };
 
-  const handleOpenCreate = () => {
+  const handleOpenCreate = async () => {
+    // Check department limit
+    const canAdd = await canAddDepartment();
+    if (!canAdd) {
+      toast({
+        title: "Department limit reached",
+        description: `Your ${subscription?.plan_name || "current"} plan allows up to ${subscription?.max_departments || 0} departments. Please upgrade to add more.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setEditingDepartment(null);
     setFormData({ name: "", description: "", parent_id: "" });
     setIsModalOpen(true);
