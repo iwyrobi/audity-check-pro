@@ -100,6 +100,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          organization_id: string | null
           parent_id: string | null
           updated_at: string
         }
@@ -108,6 +109,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          organization_id?: string | null
           parent_id?: string | null
           updated_at?: string
         }
@@ -116,10 +118,18 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          organization_id?: string | null
           parent_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "departments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "departments_parent_id_fkey"
             columns: ["parent_id"]
@@ -282,6 +292,94 @@ export type Database = {
         }
         Relationships: []
       }
+      organization_members: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          role: Database["public"]["Enums"]["org_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          role?: Database["public"]["Enums"]["org_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["org_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          slug: string
+          storage_used_bytes: number
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          stripe_subscription_status: string | null
+          subscription_plan_id: string
+          trial_ends_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          slug: string
+          storage_used_bytes?: number
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          stripe_subscription_status?: string | null
+          subscription_plan_id: string
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          slug?: string
+          storage_used_bytes?: number
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          stripe_subscription_status?: string | null
+          subscription_plan_id?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizations_subscription_plan_id_fkey"
+            columns: ["subscription_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -289,6 +387,7 @@ export type Database = {
           department_id: string | null
           full_name: string | null
           id: string
+          organization_id: string | null
           updated_at: string
           user_id: string
         }
@@ -298,6 +397,7 @@ export type Database = {
           department_id?: string | null
           full_name?: string | null
           id?: string
+          organization_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -307,6 +407,7 @@ export type Database = {
           department_id?: string | null
           full_name?: string | null
           id?: string
+          organization_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -318,7 +419,74 @@ export type Database = {
             referencedRelation: "departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      subscription_plans: {
+        Row: {
+          can_upload_videos: boolean
+          can_use_advanced_permissions: boolean
+          can_use_analytics: boolean
+          can_use_work_orders: boolean
+          created_at: string
+          id: string
+          is_active: boolean
+          max_departments: number | null
+          max_users: number
+          name: string
+          price_monthly_cents: number
+          price_yearly_cents: number
+          storage_limit_bytes: number
+          stripe_price_id_monthly: string | null
+          stripe_price_id_yearly: string | null
+          tier: Database["public"]["Enums"]["subscription_plan_tier"]
+          updated_at: string
+        }
+        Insert: {
+          can_upload_videos?: boolean
+          can_use_advanced_permissions?: boolean
+          can_use_analytics?: boolean
+          can_use_work_orders?: boolean
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_departments?: number | null
+          max_users: number
+          name: string
+          price_monthly_cents?: number
+          price_yearly_cents?: number
+          storage_limit_bytes: number
+          stripe_price_id_monthly?: string | null
+          stripe_price_id_yearly?: string | null
+          tier: Database["public"]["Enums"]["subscription_plan_tier"]
+          updated_at?: string
+        }
+        Update: {
+          can_upload_videos?: boolean
+          can_use_advanced_permissions?: boolean
+          can_use_analytics?: boolean
+          can_use_work_orders?: boolean
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_departments?: number | null
+          max_users?: number
+          name?: string
+          price_monthly_cents?: number
+          price_yearly_cents?: number
+          storage_limit_bytes?: number
+          stripe_price_id_monthly?: string | null
+          stripe_price_id_yearly?: string | null
+          tier?: Database["public"]["Enums"]["subscription_plan_tier"]
+          updated_at?: string
+        }
+        Relationships: []
       }
       template_questions: {
         Row: {
@@ -552,6 +720,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_org_add_department: { Args: { _org_id: string }; Returns: boolean }
+      can_org_add_user: { Args: { _org_id: string }; Returns: boolean }
+      can_org_upload: {
+        Args: { _file_size_bytes: number; _org_id: string }
+        Returns: boolean
+      }
       get_department_ancestors: {
         Args: { _department_id: string }
         Returns: string[]
@@ -560,8 +734,25 @@ export type Database = {
         Args: { _department_id: string }
         Returns: string[]
       }
+      get_org_subscription: {
+        Args: { _org_id: string }
+        Returns: {
+          can_upload_videos: boolean
+          can_use_advanced_permissions: boolean
+          can_use_analytics: boolean
+          can_use_work_orders: boolean
+          max_departments: number
+          max_users: number
+          plan_name: string
+          storage_limit_bytes: number
+          storage_used_bytes: number
+          stripe_subscription_status: string
+          tier: Database["public"]["Enums"]["subscription_plan_tier"]
+        }[]
+      }
       get_profile_name: { Args: { _user_id: string }; Returns: string }
       get_user_department_id: { Args: { _user_id: string }; Returns: string }
+      get_user_organization_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -579,14 +770,36 @@ export type Database = {
         Args: { _department_id: string; _user_id: string }
         Returns: boolean
       }
+      is_org_admin: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_org_member: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_org_owner: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      org_has_feature: {
+        Args: { _feature: string; _org_id: string }
+        Returns: boolean
+      }
       reassign_work_order_department: {
         Args: { _new_department_id: string; _work_order_id: string }
+        Returns: undefined
+      }
+      update_org_storage: {
+        Args: { _bytes_delta: number; _org_id: string }
         Returns: undefined
       }
     }
     Enums: {
       app_role: "admin" | "department_head" | "user" | "super_admin"
+      org_role: "owner" | "admin" | "member"
+      subscription_plan_tier: "starter" | "professional" | "enterprise"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -715,6 +928,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "department_head", "user", "super_admin"],
+      org_role: ["owner", "admin", "member"],
+      subscription_plan_tier: ["starter", "professional", "enterprise"],
     },
   },
 } as const
