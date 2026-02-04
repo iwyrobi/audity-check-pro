@@ -1,9 +1,10 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { User, Bell, Shield, Database, Palette, Globe, Building } from "lucide-react";
+import { User, Bell, Shield, Database, Palette, Globe, Building, CreditCard } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { DepartmentManagement } from "@/components/settings/DepartmentManagement";
 import { UserManagement } from "@/components/settings/UserManagement";
 import { CompanySettings } from "@/components/settings/CompanySettings";
+import { SubscriptionInfo } from "@/components/settings/SubscriptionInfo";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -55,6 +56,7 @@ export default function Settings() {
         <Tabs defaultValue="general" className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="subscription">Subscription</TabsTrigger>
             {isSuperAdmin && <TabsTrigger value="company">Company</TabsTrigger>}
             {isSuperAdmin && <TabsTrigger value="users">Users & Roles</TabsTrigger>}
             {isSuperAdmin && <TabsTrigger value="departments">Departments</TabsTrigger>}
@@ -116,6 +118,10 @@ export default function Settings() {
                 </div>
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="subscription">
+            <SubscriptionInfo />
           </TabsContent>
 
           {isSuperAdmin && (

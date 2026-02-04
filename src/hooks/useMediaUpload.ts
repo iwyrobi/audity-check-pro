@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useSubscription } from "@/hooks/useSubscription";
 
 interface UploadedMedia {
   id: string;
@@ -14,8 +15,9 @@ interface UploadedMedia {
 
 export function useMediaUpload() {
   const [uploading, setUploading] = useState(false);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { canUpload, hasFeature, formatBytes, subscription } = useSubscription();
 
   // Helper function to get signed URL for private bucket
   const getSignedUrl = async (filePath: string): Promise<string> => {
@@ -40,6 +42,31 @@ export function useMediaUpload() {
       toast({
         title: "Authentication required",
         description: "Please sign in to upload files.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    // Check if video upload is allowed
+    const isVideo = file.type.startsWith("video/");
+    if (isVideo && !hasFeature("videos")) {
+      toast({
+        title: "Video upload not available",
+        description: "Your current plan doesn't include video uploads. Please upgrade to Professional or Enterprise.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    // Check storage quota
+    const canUploadFile = await canUpload(file.size);
+    if (!canUploadFile) {
+      const remaining = subscription 
+        ? subscription.storage_limit_bytes - subscription.storage_used_bytes
+        : 0;
+      toast({
+        title: "Storage limit exceeded",
+        description: `This file (${formatBytes(file.size)}) exceeds your remaining storage (${formatBytes(Math.max(0, remaining))}). Please upgrade your plan or delete some files.`,
         variant: "destructive",
       });
       return null;
@@ -77,6 +104,14 @@ export function useMediaUpload() {
         .single();
 
       if (mediaError) throw mediaError;
+
+      // Update organization storage usage
+      if (profile?.organization_id) {
+        await supabase.rpc("update_org_storage", {
+          _org_id: profile.organization_id,
+          _bytes_delta: file.size,
+        });
+      }
 
       return {
         ...mediaData,

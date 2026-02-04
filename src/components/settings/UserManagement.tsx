@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useDepartments } from "@/hooks/useDepartments";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +45,7 @@ interface UserWithProfile {
 export function UserManagement() {
   const { isSuperAdmin } = useAuth();
   const { departments } = useDepartments();
+  const { subscription, canAddUser, formatBytes, storageUsagePercent } = useSubscription();
   const { toast } = useToast();
 
   const [users, setUsers] = useState<UserWithProfile[]>([]);
@@ -135,7 +138,18 @@ export function UserManagement() {
     setIsEditModalOpen(true);
   };
 
-  const handleOpenCreate = () => {
+  const handleOpenCreate = async () => {
+    // Check user limit
+    const canAdd = await canAddUser();
+    if (!canAdd) {
+      toast({
+        title: "User limit reached",
+        description: `Your ${subscription?.plan_name || "current"} plan allows up to ${subscription?.max_users || 0} users. Please upgrade to add more users.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setCreateFormData({
       email: "",
       password: "",
