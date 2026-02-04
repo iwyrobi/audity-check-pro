@@ -4,66 +4,29 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { InspectionRunner, QuestionAnswer } from "@/components/checklists/InspectionRunner";
 import { CreateWorkOrderFromDefect } from "@/components/checklists/CreateWorkOrderFromDefect";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ArrowLeft, Save, Send, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { TemplateSection, QuestionItem } from "@/components/checklists/TemplateBuilder";
 import { useInspections } from "@/hooks/useInspections";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { ChecklistTemplateDB } from "@/hooks/useChecklistTemplates";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-// Sample template for demo (used when no template is passed)
-const sampleTemplate: TemplateSection[] = [
-  {
-    id: "section-1",
-    title: "Personal Protective Equipment",
-    isExpanded: true,
-    questions: [
-      { id: "q1", text: "Are all workers wearing required PPE?", type: "yes-no", required: true, score: 5 },
-      { id: "q2", text: "Is PPE in good condition without visible damage?", type: "yes-no", required: true, score: 5 },
-      { id: "q3", text: "Are safety glasses being worn in designated areas?", type: "yes-no", required: true, score: 3 },
-      { id: "q4", text: "Rate the overall PPE compliance", type: "score", required: true, score: 10 },
-    ],
-  },
-  {
-    id: "section-2",
-    title: "Fire Safety",
-    isExpanded: true,
-    questions: [
-      { id: "q5", text: "Are fire extinguishers accessible and not blocked?", type: "yes-no", required: true, score: 5 },
-      { id: "q6", text: "Are fire extinguisher inspection tags current?", type: "yes-no", required: true, score: 5 },
-      { id: "q7", text: "Are emergency exits clearly marked and unobstructed?", type: "yes-no", required: true, score: 5 },
-      { id: "q8", text: "Is the fire alarm system functional?", type: "yes-no", required: true, score: 10 },
-    ],
-  },
-  {
-    id: "section-3",
-    title: "Housekeeping",
-    isExpanded: true,
-    questions: [
-      { id: "q9", text: "Are walkways clear of obstructions?", type: "yes-no", required: true, score: 4 },
-      { id: "q10", text: "Is the work area clean and organized?", type: "yes-no", required: true, score: 4 },
-      { id: "q11", text: "Are spills cleaned up promptly?", type: "yes-no", required: true, score: 5 },
-      { id: "q12", text: "Rate the overall housekeeping condition", type: "score", required: false, score: 10 },
-    ],
-  },
-];
 
 export default function RunInspection() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { templateId, templateName, templateData } = (location.state as {
+  const { templateId, templateName, templateData, resumeInspectionId } = (location.state as {
     templateId?: string;
     templateName?: string;
     templateData?: ChecklistTemplateDB;
+    resumeInspectionId?: string;
   }) || {};
 
   const { createInspection, saveInspectionAnswers, completeInspection } = useInspections();
   const { createWorkOrder } = useWorkOrders();
 
-  const [inspectionId, setInspectionId] = useState<string | null>(null);
+  const [inspectionId, setInspectionId] = useState<string | null>(resumeInspectionId || null);
   const [inspectionTitle, setInspectionTitle] = useState(templateName || "Daily Safety Inspection");
   const [answers, setAnswers] = useState<Record<string, QuestionAnswer>>({});
   const [workOrderModal, setWorkOrderModal] = useState<{
@@ -72,11 +35,100 @@ export default function RunInspection() {
     section?: TemplateSection;
   }>({ open: false });
   const [saving, setSaving] = useState(false);
-  const [sections, setSections] = useState<TemplateSection[]>(sampleTemplate);
+  const [loading, setLoading] = useState(!!resumeInspectionId);
+  const [sections, setSections] = useState<TemplateSection[]>([]);
 
-  // Convert template data to sections format if passed via navigation
+  // Load template and answers when resuming an inspection
   useEffect(() => {
-    if (templateData?.sections) {
+    const loadResumeData = async () => {
+      if (!resumeInspectionId || !templateId) return;
+
+      setLoading(true);
+      try {
+        // Fetch the template with sections and questions
+        const { data: templateResult, error: templateError } = await supabase
+          .from("checklist_templates")
+          .select(`
+            *,
+            sections:template_sections(
+              *,
+              questions:template_questions(*)
+            )
+          `)
+          .eq("id", templateId)
+          .maybeSingle();
+
+        if (templateError) throw templateError;
+
+        if (templateResult?.sections) {
+          // Sort sections and questions by sort_order
+          const sortedSections = (templateResult.sections || [])
+            .sort((a: any, b: any) => a.sort_order - b.sort_order)
+            .map((section: any) => ({
+              ...section,
+              questions: (section.questions || []).sort(
+                (a: any, b: any) => a.sort_order - b.sort_order
+              ),
+            }));
+
+          // Convert to TemplateSection format
+          const convertedSections: TemplateSection[] = sortedSections.map((section: any) => ({
+            id: section.id,
+            title: section.name,
+            isExpanded: true,
+            questions: (section.questions || []).map((q: any) => ({
+              id: q.id,
+              text: q.question,
+              type: q.type as "yes-no" | "score" | "text" | "multiple-choice",
+              score: q.score,
+              required: q.required,
+              options: q.options,
+            })),
+          }));
+
+          setSections(convertedSections);
+        }
+
+        // Fetch saved answers for this inspection
+        const { data: answersData, error: answersError } = await supabase
+          .from("inspection_answers")
+          .select("*")
+          .eq("inspection_id", resumeInspectionId);
+
+        if (answersError) throw answersError;
+
+        // Convert answers to the format expected by the component
+        const loadedAnswers: Record<string, QuestionAnswer> = {};
+        (answersData || []).forEach((a) => {
+          if (a.question_id) {
+            loadedAnswers[a.question_id] = {
+              questionId: a.question_id,
+              value: a.answer === "yes" || a.answer === "no" || a.answer === "na" 
+                ? a.answer 
+                : isNaN(Number(a.answer)) ? a.answer : Number(a.answer),
+              score: a.score_earned || 0,
+              maxScore: a.max_score || 0,
+              isDefect: a.is_defect || false,
+              notes: a.notes || undefined,
+            };
+          }
+        });
+        setAnswers(loadedAnswers);
+
+      } catch (error) {
+        console.error("Error loading resume data:", error);
+        toast.error("Failed to load inspection data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadResumeData();
+  }, [resumeInspectionId, templateId]);
+
+  // Convert template data to sections format if passed via navigation (new inspection)
+  useEffect(() => {
+    if (templateData?.sections && !resumeInspectionId) {
       const convertedSections: TemplateSection[] = templateData.sections.map((section) => ({
         id: section.id,
         title: section.name,
@@ -92,12 +144,12 @@ export default function RunInspection() {
       }));
       setSections(convertedSections);
     }
-  }, [templateData]);
+  }, [templateData, resumeInspectionId]);
 
-  // Initialize inspection in database when using real template
+  // Initialize inspection in database when using real template (new inspection only)
   useEffect(() => {
     const initInspection = async () => {
-      if (templateId && !inspectionId && templateData) {
+      if (templateId && !inspectionId && templateData && !resumeInspectionId) {
         const inspection = await createInspection(templateId, inspectionTitle);
         if (inspection) {
           setInspectionId(inspection.id);
@@ -105,7 +157,7 @@ export default function RunInspection() {
       }
     };
     initInspection();
-  }, [templateId, templateData]);
+  }, [templateId, templateData, resumeInspectionId]);
 
   const handleAnswer = (questionId: string, answer: Partial<QuestionAnswer>) => {
     setAnswers((prev) => ({
@@ -123,7 +175,7 @@ export default function RunInspection() {
   };
 
   const handleSaveWorkOrder = async (data: any) => {
-    if (templateData) {
+    if (templateId || resumeInspectionId) {
       await createWorkOrder({
         title: data.title,
         description: data.description,
@@ -150,7 +202,7 @@ export default function RunInspection() {
   const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
 
   const handleSaveDraft = async () => {
-    if (!inspectionId || !templateData) {
+    if (!inspectionId) {
       toast.info("Draft saved locally");
       return;
     }
@@ -186,7 +238,7 @@ export default function RunInspection() {
 
     setSaving(true);
 
-    if (inspectionId && templateData) {
+    if (inspectionId) {
       // Save to database
       const answerData = Object.entries(answers).map(([questionId, answer]) => {
         const question = sections
@@ -211,8 +263,32 @@ export default function RunInspection() {
     }
 
     setSaving(false);
-    navigate("/checklists");
+    navigate("/inspections");
   };
+
+  if (loading) {
+    return (
+      <AppLayout title="Loading Inspection...">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (sections.length === 0) {
+    return (
+      <AppLayout title="Inspection">
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <AlertTriangle className="w-12 h-12 text-warning" />
+          <p className="text-muted-foreground">No template data found. Please start a new inspection from the checklists page.</p>
+          <Button onClick={() => navigate("/checklists")}>
+            Go to Checklists
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout title={inspectionTitle}>
