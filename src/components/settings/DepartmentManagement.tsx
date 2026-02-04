@@ -284,14 +284,14 @@ export function DepartmentManagement() {
             <div>
               <label className="text-sm font-medium mb-1.5 block">Parent Department</label>
               <Select 
-                value={formData.parent_id} 
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, parent_id: value }))}
+                value={formData.parent_id || "none"} 
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, parent_id: value === "none" ? "" : value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="None (Top-level department)" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover">
-                  <SelectItem value="">None (Top-level department)</SelectItem>
+                  <SelectItem value="none">None (Top-level department)</SelectItem>
                   {departments
                     .filter(d => !editingDepartment || d.id !== editingDepartment.id)
                     .map((dept) => (
