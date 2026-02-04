@@ -37,7 +37,7 @@ interface CreateWorkOrderModalProps {
     description?: string;
     location?: string;
   };
-  departments?: { id: string; name: string }[];
+  departments?: { id: string; name: string; displayName?: string }[];
 }
 
 const priorities = [
@@ -153,7 +153,7 @@ export function CreateWorkOrderModal({
                 <SelectContent>
                   {departments.map((dept) => (
                     <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
+                      {dept.displayName || dept.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -52,7 +52,7 @@ export default function WorkOrders() {
   const [showMyWorkOrders, setShowMyWorkOrders] = useState(false);
 
   const { workOrders, loading, createWorkOrder, updateWorkOrder } = useWorkOrders();
-  const { departments } = useDepartments();
+  const { hierarchicalDepartments } = useDepartments();
   const { user, profile, isAdmin } = useAuth();
 
   const getDateRange = (): { start: Date | null; end: Date | null } => {
@@ -402,7 +402,7 @@ export default function WorkOrders() {
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSave={handleCreateWorkOrder}
-        departments={departments}
+        departments={hierarchicalDepartments}
       />
 
       {/* Work Order Detail Modal */}
@@ -411,7 +411,7 @@ export default function WorkOrders() {
         onClose={() => setSelectedWorkOrder(null)}
         workOrder={selectedWorkOrder}
         onUpdate={handleUpdateWorkOrder}
-        departments={departments}
+        departments={hierarchicalDepartments}
       />
     </AppLayout>
   );
