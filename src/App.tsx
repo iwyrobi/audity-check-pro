@@ -15,6 +15,7 @@ import InspectionReport from "./pages/InspectionReport";
 import WorkOrderReport from "./pages/WorkOrderReport";
 import Settings from "./pages/Settings";
 import RunInspection from "./pages/RunInspection";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -119,6 +120,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <InspectionDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         }
       />
