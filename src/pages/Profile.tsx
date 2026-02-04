@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { useSubscription } from "@/hooks/useSubscription";
 import { 
   User, 
   ClipboardCheck, 
@@ -20,7 +22,16 @@ import {
   AlertTriangle,
   Loader2,
   Save,
-  KeyRound
+  KeyRound,
+  Crown,
+  Zap,
+  HardDrive,
+  Users,
+  Building2,
+  Video,
+  BarChart3,
+  Shield,
+  ArrowUpRight
 } from "lucide-react";
 
 interface UserStats {
@@ -36,6 +47,7 @@ interface UserStats {
 export default function Profile() {
   const { user, profile, department, roles, isAdmin, isDepartmentHead, isSuperAdmin } = useAuth();
   const { toast } = useToast();
+  const { subscription, loading: subscriptionLoading, storageUsagePercent, formatBytes, hasFeature } = useSubscription();
   
   const [stats, setStats] = useState<UserStats>({
     totalInspections: 0,
@@ -214,6 +226,136 @@ export default function Profile() {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Subscription Status Card */}
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Crown className="w-5 h-5 text-primary" />
+                <CardTitle className="text-lg">Subscription Plan</CardTitle>
+              </div>
+              {subscription && (
+                <Badge 
+                  variant={subscription.tier === "enterprise" ? "default" : subscription.tier === "professional" ? "secondary" : "outline"}
+                  className="capitalize"
+                >
+                  {subscription.plan_name}
+                </Badge>
+              )}
+            </div>
+            <CardDescription>Your current plan and usage</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {subscriptionLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : subscription ? (
+              <>
+                {/* Storage Usage */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <HardDrive className="w-4 h-4 text-muted-foreground" />
+                      <span>Storage</span>
+                    </div>
+                    <span className="text-muted-foreground">
+                      {formatBytes(subscription.storage_used_bytes)} / {formatBytes(subscription.storage_limit_bytes)}
+                    </span>
+                  </div>
+                  <Progress value={storageUsagePercent()} className="h-2" />
+                </div>
+
+                {/* Plan Limits */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
+                    <Users className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium">{subscription.max_users}</p>
+                      <p className="text-xs text-muted-foreground">Max Users</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
+                    <Building2 className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium">
+                        {subscription.max_departments === null ? "Unlimited" : subscription.max_departments}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Max Depts</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Features */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Features</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className={`flex items-center gap-2 text-sm ${hasFeature("work_orders") ? "text-foreground" : "text-muted-foreground"}`}>
+                      {hasFeature("work_orders") ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Clock className="w-4 h-4" />
+                      )}
+                      <span>Work Orders</span>
+                    </div>
+                    <div className={`flex items-center gap-2 text-sm ${hasFeature("analytics") ? "text-foreground" : "text-muted-foreground"}`}>
+                      {hasFeature("analytics") ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Clock className="w-4 h-4" />
+                      )}
+                      <span>Analytics</span>
+                    </div>
+                    <div className={`flex items-center gap-2 text-sm ${hasFeature("videos") ? "text-foreground" : "text-muted-foreground"}`}>
+                      {hasFeature("videos") ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Clock className="w-4 h-4" />
+                      )}
+                      <span>Video Uploads</span>
+                    </div>
+                    <div className={`flex items-center gap-2 text-sm ${hasFeature("advanced_permissions") ? "text-foreground" : "text-muted-foreground"}`}>
+                      {hasFeature("advanced_permissions") ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Clock className="w-4 h-4" />
+                      )}
+                      <span>Advanced Perms</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Upgrade CTA */}
+                {subscription.tier !== "enterprise" && (
+                  <div className="pt-2 border-t">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Need more?</p>
+                        <p className="text-xs text-muted-foreground">
+                          Upgrade to unlock more features
+                        </p>
+                      </div>
+                      <Button 
+                        size="sm"
+                        onClick={() => window.location.href = "/settings"}
+                        className="gap-1"
+                      >
+                        <Zap className="w-4 h-4" />
+                        Upgrade
+                        <ArrowUpRight className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">
+                <p>No subscription information available</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
