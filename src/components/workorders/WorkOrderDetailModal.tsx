@@ -650,7 +650,7 @@ export function WorkOrderDetailModal({
 
             {/* Chat Messages */}
             <div className="bg-secondary/30 rounded-lg border">
-              <ScrollArea className="h-64 p-3">
+              <div className="h-64 overflow-y-auto p-3">
                 {loadingComments ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -744,7 +744,7 @@ export function WorkOrderDetailModal({
                     <div ref={commentsEndRef} />
                   </div>
                 )}
-              </ScrollArea>
+              </div>
 
               {/* Pending Files Preview */}
               {pendingFiles.length > 0 && (
