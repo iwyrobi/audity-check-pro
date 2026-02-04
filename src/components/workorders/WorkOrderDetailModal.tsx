@@ -112,11 +112,18 @@ export function WorkOrderDetailModal({
   const { toast } = useToast();
   const { uploadFile, uploading } = useMediaUpload();
 
+  // Sync local state with workOrder props when modal opens or workOrder changes
   useEffect(() => {
     if (workOrder) {
       setStatus(workOrder.status);
       setPriority(workOrder.priority);
       setAssignedDepartment(workOrder.department_id);
+    }
+  }, [workOrder?.id, workOrder?.status, workOrder?.priority, workOrder?.department_id]);
+
+  // Fetch comments and completers when work order changes
+  useEffect(() => {
+    if (workOrder) {
       fetchComments();
       fetchCompleters();
     }
@@ -166,8 +173,13 @@ export function WorkOrderDetailModal({
           .eq("associated_type", "work_order_comment")
           .in("associated_id", commentIds);
 
-        mediaData?.forEach(m => {
-          const url = supabase.storage.from("uploads").getPublicUrl(m.file_path).data.publicUrl;
+        // Get signed URLs for all media items (private bucket)
+        for (const m of mediaData || []) {
+          const { data: signedUrlData } = await supabase.storage
+            .from("uploads")
+            .createSignedUrl(m.file_path, 3600); // 1 hour expiry
+          
+          const url = signedUrlData?.signedUrl || "";
           if (!mediaMap[m.associated_id]) {
             mediaMap[m.associated_id] = [];
           }
@@ -178,7 +190,7 @@ export function WorkOrderDetailModal({
             file_type: m.file_type,
             url
           });
-        });
+        }
       }
 
       // Combine comments with media
@@ -416,16 +428,19 @@ export function WorkOrderDetailModal({
         
         // Log department change
         await logDepartmentChange(workOrder.department_id, assignedDepartment);
+        await fetchComments(); // Refresh to show the new log
       }
 
       // Log status change
       if (status !== workOrder.status) {
         await logStatusChange(workOrder.status, status);
+        await fetchComments(); // Refresh to show the new log
       }
       
       // Log priority change
       if (priority !== workOrder.priority) {
         await logPriorityChange(workOrder.priority, priority);
+        await fetchComments(); // Refresh to show the new log
       }
 
       // Update other fields (status, priority, completed_at)

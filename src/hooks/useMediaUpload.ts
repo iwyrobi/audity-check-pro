@@ -17,6 +17,20 @@ export function useMediaUpload() {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Helper function to get signed URL for private bucket
+  const getSignedUrl = async (filePath: string): Promise<string> => {
+    const { data, error } = await supabase.storage
+      .from("uploads")
+      .createSignedUrl(filePath, 3600); // 1 hour expiry
+    
+    if (error || !data?.signedUrl) {
+      console.error("Error creating signed URL:", error);
+      return "";
+    }
+    
+    return data.signedUrl;
+  };
+
   const uploadFile = async (
     file: File,
     associatedType: "inspection" | "work_order" | "inspection_answer" | "work_order_comment",
@@ -44,10 +58,8 @@ export function useMediaUpload() {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("uploads")
-        .getPublicUrl(fileName);
+      // Get signed URL for private bucket
+      const signedUrl = await getSignedUrl(fileName);
 
       // Save media record
       const { data: mediaData, error: mediaError } = await supabase
@@ -68,7 +80,7 @@ export function useMediaUpload() {
 
       return {
         ...mediaData,
-        url: urlData.publicUrl,
+        url: signedUrl,
       };
     } catch (error: any) {
       console.error("Upload error:", error);
@@ -96,10 +108,18 @@ export function useMediaUpload() {
 
       if (error) throw error;
 
-      return (data || []).map((item) => ({
-        ...item,
-        url: supabase.storage.from("uploads").getPublicUrl(item.file_path).data.publicUrl,
-      }));
+      // Get signed URLs for all media items
+      const mediaWithUrls = await Promise.all(
+        (data || []).map(async (item) => {
+          const signedUrl = await getSignedUrl(item.file_path);
+          return {
+            ...item,
+            url: signedUrl,
+          };
+        })
+      );
+
+      return mediaWithUrls;
     } catch (error) {
       console.error("Error fetching media:", error);
       return [];
@@ -140,5 +160,6 @@ export function useMediaUpload() {
     uploadFile,
     getMediaForItem,
     deleteMedia,
+    getSignedUrl,
   };
 }
