@@ -13,12 +13,34 @@ interface OfflineAction {
   timestamp: number;
 }
 
+export interface OfflineInspection {
+  id: string;
+  inspectionId: string;
+  title: string;
+  templateId: string;
+  answers: {
+    questionId: string;
+    questionText: string;
+    answer: string;
+    scoreEarned: number;
+    maxScore: number;
+    isDefect: boolean;
+    notes?: string;
+  }[];
+  totalScore: number;
+  maxScore: number;
+  isComplete: boolean;
+  timestamp: number;
+}
+
 const STORAGE_KEY = "offline_queue";
+const INSPECTION_STORAGE_KEY = "offline_inspections";
 
 export function useOfflineSync() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingActions, setPendingActions] = useState<OfflineAction[]>([]);
+  const [offlineInspections, setOfflineInspections] = useState<OfflineInspection[]>([]);
   const { toast } = useToast();
 
   // Load pending actions from localStorage
@@ -31,6 +53,15 @@ export function useOfflineSync() {
         console.error("Failed to parse offline queue:", e);
       }
     }
+
+    const storedInspections = localStorage.getItem(INSPECTION_STORAGE_KEY);
+    if (storedInspections) {
+      try {
+        setOfflineInspections(JSON.parse(storedInspections));
+      } catch (e) {
+        console.error("Failed to parse offline inspections:", e);
+      }
+    }
   }, []);
 
   // Save pending actions to localStorage
@@ -38,14 +69,21 @@ export function useOfflineSync() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingActions));
   }, [pendingActions]);
 
+  // Save offline inspections to localStorage
+  useEffect(() => {
+    localStorage.setItem(INSPECTION_STORAGE_KEY, JSON.stringify(offlineInspections));
+  }, [offlineInspections]);
+
+  const totalPendingCount = pendingActions.length + offlineInspections.length;
+
   // Listen for online/offline events
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       toast({
         title: "You're back online",
-        description: pendingActions.length > 0 
-          ? `Syncing ${pendingActions.length} pending changes...` 
+        description: totalPendingCount > 0 
+          ? `Syncing ${totalPendingCount} pending changes...` 
           : "All changes are up to date",
       });
     };
@@ -66,14 +104,14 @@ export function useOfflineSync() {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [pendingActions.length]);
+  }, [totalPendingCount]);
 
   // Auto-sync when coming back online
   useEffect(() => {
-    if (isOnline && pendingActions.length > 0 && !isSyncing) {
-      syncPendingActions();
+    if (isOnline && totalPendingCount > 0 && !isSyncing) {
+      syncAll();
     }
-  }, [isOnline, pendingActions.length]);
+  }, [isOnline, totalPendingCount]);
 
   const queueAction = useCallback((action: Omit<OfflineAction, "id" | "timestamp">) => {
     const newAction: OfflineAction = {
@@ -89,10 +127,105 @@ export function useOfflineSync() {
     setPendingActions((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
-  const syncPendingActions = async () => {
-    if (!isOnline || isSyncing || pendingActions.length === 0) return;
+  // Save inspection for offline sync
+  const saveInspectionOffline = useCallback((inspection: Omit<OfflineInspection, "id" | "timestamp">) => {
+    const newInspection: OfflineInspection = {
+      ...inspection,
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: Date.now(),
+    };
+    
+    // Update or add the inspection
+    setOfflineInspections((prev) => {
+      const existing = prev.findIndex((i) => i.inspectionId === inspection.inspectionId);
+      if (existing >= 0) {
+        const updated = [...prev];
+        updated[existing] = newInspection;
+        return updated;
+      }
+      return [...prev, newInspection];
+    });
+    
+    return newInspection.id;
+  }, []);
 
-    setIsSyncing(true);
+  const removeOfflineInspection = useCallback((inspectionId: string) => {
+    setOfflineInspections((prev) => prev.filter((i) => i.inspectionId !== inspectionId));
+  }, []);
+
+  const getOfflineInspection = useCallback((inspectionId: string) => {
+    return offlineInspections.find((i) => i.inspectionId === inspectionId);
+  }, [offlineInspections]);
+
+  // Sync offline inspections
+  const syncOfflineInspections = async () => {
+    if (!isOnline || offlineInspections.length === 0) return { synced: 0, failed: 0 };
+
+    let syncedCount = 0;
+    let failedCount = 0;
+
+    for (const inspection of offlineInspections) {
+      try {
+        // Delete existing answers first
+        await supabase
+          .from("inspection_answers")
+          .delete()
+          .eq("inspection_id", inspection.inspectionId);
+
+        // Insert new answers
+        const inserts = inspection.answers.map((a) => ({
+          inspection_id: inspection.inspectionId,
+          question_id: a.questionId,
+          question_text: a.questionText,
+          answer: a.answer,
+          score_earned: a.scoreEarned,
+          max_score: a.maxScore,
+          is_defect: a.isDefect,
+          notes: a.notes,
+        }));
+
+        if (inserts.length > 0) {
+          const { error: insertError } = await supabase
+            .from("inspection_answers")
+            .insert(inserts);
+
+          if (insertError) throw insertError;
+        }
+
+        // If complete, update the inspection status
+        if (inspection.isComplete) {
+          const percentage = inspection.maxScore > 0 
+            ? (inspection.totalScore / inspection.maxScore) * 100 
+            : 0;
+
+          const { error: updateError } = await supabase
+            .from("inspections")
+            .update({
+              status: "completed",
+              total_score: inspection.totalScore,
+              max_score: inspection.maxScore,
+              percentage: Math.round(percentage * 100) / 100,
+              completed_at: new Date().toISOString(),
+            })
+            .eq("id", inspection.inspectionId);
+
+          if (updateError) throw updateError;
+        }
+
+        removeOfflineInspection(inspection.inspectionId);
+        syncedCount++;
+      } catch (e) {
+        console.error(`Error syncing inspection ${inspection.inspectionId}:`, e);
+        failedCount++;
+      }
+    }
+
+    return { synced: syncedCount, failed: failedCount };
+  };
+
+  const syncPendingActions = async () => {
+    if (!isOnline || isSyncing || pendingActions.length === 0) return { synced: 0, failed: 0 };
+
     const actionsToSync = [...pendingActions];
     let syncedCount = 0;
     let failedCount = 0;
@@ -103,7 +236,6 @@ export function useOfflineSync() {
 
         switch (action.type) {
           case "create":
-            // Use generic approach for offline sync
             const insertResult = await supabase
               .from(action.table)
               .insert(action.data as any);
@@ -141,12 +273,28 @@ export function useOfflineSync() {
       }
     }
 
+    return { synced: syncedCount, failed: failedCount };
+  };
+
+  const syncAll = async () => {
+    if (!isOnline || isSyncing) return;
+
+    setIsSyncing(true);
+
+    const [actionsResult, inspectionsResult] = await Promise.all([
+      syncPendingActions(),
+      syncOfflineInspections(),
+    ]);
+
+    const totalSynced = actionsResult.synced + inspectionsResult.synced;
+    const totalFailed = actionsResult.failed + inspectionsResult.failed;
+
     setIsSyncing(false);
 
-    if (syncedCount > 0) {
+    if (totalSynced > 0 || totalFailed > 0) {
       toast({
         title: "Sync complete",
-        description: `Synced ${syncedCount} changes${failedCount > 0 ? `, ${failedCount} failed` : ""}`,
+        description: `Synced ${totalSynced} changes${totalFailed > 0 ? `, ${totalFailed} failed` : ""}`,
       });
     }
   };
@@ -175,9 +323,13 @@ export function useOfflineSync() {
   return {
     isOnline,
     isSyncing,
-    pendingCount: pendingActions.length,
+    pendingCount: totalPendingCount,
+    offlineInspections,
     queueAction,
-    syncPendingActions,
+    syncPendingActions: syncAll,
     executeWithOfflineSupport,
+    saveInspectionOffline,
+    removeOfflineInspection,
+    getOfflineInspection,
   };
 }
