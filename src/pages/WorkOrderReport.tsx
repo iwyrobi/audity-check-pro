@@ -171,6 +171,13 @@ export default function WorkOrderReport() {
     }
   };
 
+  // Calculate overdue work orders
+  const overdueCount = useMemo(() => {
+    return filteredWorkOrders.filter(wo => 
+      wo.status !== "completed" && wo.due_date && new Date(wo.due_date) < new Date()
+    ).length;
+  }, [filteredWorkOrders]);
+
   const handleExportPDF = async () => {
     setExporting(true);
     try {
@@ -186,16 +193,27 @@ export default function WorkOrderReport() {
       
       pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
-      pdf.text(`Generated on ${format(new Date(), "MMMM d, yyyy")}`, margin, 28);
+      pdf.text(`Generated on ${format(new Date(), "MMMM d, yyyy HH:mm")}`, margin, 28);
       pdf.text(`Date Range: ${dateFilters.find(f => f.value === selectedDateRange)?.label || "All Time"}`, margin, 34);
+      
+      let filterY = 40;
       if (selectedDepartmentId !== "all") {
-        pdf.text(`Department: ${getDepartmentName(selectedDepartmentId)}`, margin, 40);
+        pdf.text(`Department: ${getDepartmentName(selectedDepartmentId)}`, margin, filterY);
+        filterY += 6;
+      }
+      if (selectedStatus !== "all") {
+        pdf.text(`Status: ${statusFilters.find(f => f.value === selectedStatus)?.label}`, margin, filterY);
+        filterY += 6;
+      }
+      if (selectedPriority !== "all") {
+        pdf.text(`Priority: ${priorityFilters.find(f => f.value === selectedPriority)?.label}`, margin, filterY);
+        filterY += 6;
       }
 
       // Summary
       pdf.setFontSize(14);
       pdf.setFont("helvetica", "bold");
-      pdf.text("Summary", margin, 52);
+      pdf.text("Summary", margin, filterY + 8);
       
       pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
@@ -206,9 +224,10 @@ export default function WorkOrderReport() {
         `Pending: ${stats.pending}`,
         `Completed: ${stats.completed}`,
         `Critical Priority: ${stats.critical}`,
+        `Overdue: ${overdueCount}`,
       ];
       summary.forEach((text, i) => {
-        pdf.text(text, margin, 60 + i * 6);
+        pdf.text(text, margin, filterY + 16 + i * 6);
       });
 
       // Table
@@ -217,15 +236,15 @@ export default function WorkOrderReport() {
       pdf.setFont("helvetica", "bold");
       pdf.text("Work Order Details", margin, 20);
 
-      const headers = ["Title", "Department", "Status", "Priority", "Location", "Date"];
-      const colWidths = [70, 45, 35, 30, 40, 35];
+      const headers = ["Title", "Department", "Created By", "Status", "Priority", "Due Date", "Created"];
+      const colWidths = [50, 40, 35, 30, 25, 30, 30];
       let startX = margin;
       let startY = 30;
 
       pdf.setFillColor(240, 240, 240);
       pdf.rect(margin, startY - 5, pageWidth - margin * 2, 10, "F");
       
-      pdf.setFontSize(10);
+      pdf.setFontSize(9);
       pdf.setFont("helvetica", "bold");
       headers.forEach((header, i) => {
         pdf.text(header, startX, startY);
@@ -241,12 +260,14 @@ export default function WorkOrderReport() {
           startY = 20;
         }
         startX = margin;
+        const isOverdue = wo.status !== "completed" && wo.due_date && new Date(wo.due_date) < new Date();
         const row = [
-          wo.title.length > 30 ? wo.title.substring(0, 27) + "..." : wo.title,
-          getDepartmentName(wo.department_id),
+          wo.title.length > 25 ? wo.title.substring(0, 22) + "..." : wo.title,
+          getDepartmentName(wo.department_id).length > 20 ? getDepartmentName(wo.department_id).substring(0, 17) + "..." : getDepartmentName(wo.department_id),
+          (wo.creator_name || "Unknown").length > 18 ? (wo.creator_name || "").substring(0, 15) + "..." : (wo.creator_name || "Unknown"),
           wo.status.charAt(0).toUpperCase() + wo.status.slice(1).replace("-", " "),
           wo.priority.charAt(0).toUpperCase() + wo.priority.slice(1),
-          (wo.location || "—").length > 15 ? (wo.location || "").substring(0, 12) + "..." : (wo.location || "—"),
+          wo.due_date ? format(new Date(wo.due_date), "MMM d, yyyy") + (isOverdue ? " ⚠" : "") : "—",
           format(new Date(wo.created_at), "MMM d, yyyy"),
         ];
         row.forEach((cell, i) => {
@@ -272,33 +293,83 @@ export default function WorkOrderReport() {
       const XLSX = await import("xlsx");
       const workbook = XLSX.utils.book_new();
 
-      // Details sheet
-      const data = filteredWorkOrders.map((wo) => ({
-        Title: wo.title,
-        Description: wo.description || "",
-        Department: getDepartmentName(wo.department_id),
-        Status: wo.status.charAt(0).toUpperCase() + wo.status.slice(1).replace("-", " "),
-        Priority: wo.priority.charAt(0).toUpperCase() + wo.priority.slice(1),
-        Location: wo.location || "",
-        "Created By": wo.creator_name || "",
-        "Due Date": wo.due_date ? format(new Date(wo.due_date), "yyyy-MM-dd") : "",
-        "Created Date": format(new Date(wo.created_at), "yyyy-MM-dd"),
-        "Completed Date": wo.completed_at ? format(new Date(wo.completed_at), "yyyy-MM-dd") : "",
-      }));
+      // Details sheet with more columns
+      const data = filteredWorkOrders.map((wo) => {
+        const isOverdue = wo.status !== "completed" && wo.due_date && new Date(wo.due_date) < new Date();
+        return {
+          Title: wo.title,
+          Description: wo.description || "",
+          Department: getDepartmentName(wo.department_id),
+          "Created By": wo.creator_name || "Unknown",
+          Status: wo.status.charAt(0).toUpperCase() + wo.status.slice(1).replace("-", " "),
+          Priority: wo.priority.charAt(0).toUpperCase() + wo.priority.slice(1),
+          Location: wo.location || "",
+          "Due Date": wo.due_date ? format(new Date(wo.due_date), "yyyy-MM-dd") : "",
+          "Is Overdue": isOverdue ? "Yes" : "No",
+          "Created Date": format(new Date(wo.created_at), "yyyy-MM-dd HH:mm"),
+          "Completed Date": wo.completed_at ? format(new Date(wo.completed_at), "yyyy-MM-dd HH:mm") : "",
+          "Duration (Days)": wo.completed_at
+            ? Math.ceil((new Date(wo.completed_at).getTime() - new Date(wo.created_at).getTime()) / (1000 * 60 * 60 * 24))
+            : "",
+          "Linked Inspection": wo.linked_inspection_id ? "Yes" : "No",
+          "Defect Question": wo.linked_defect_question || "",
+        };
+      });
       const sheet = XLSX.utils.json_to_sheet(data);
       XLSX.utils.book_append_sheet(workbook, sheet, "Work Orders");
 
-      // Summary sheet
+      // Summary sheet with more metrics
       const summaryData = [
+        { Metric: "Report Generated", Value: format(new Date(), "yyyy-MM-dd HH:mm") },
+        { Metric: "Date Range", Value: dateFilters.find(f => f.value === selectedDateRange)?.label || "All Time" },
+        { Metric: "Department Filter", Value: selectedDepartmentId !== "all" ? getDepartmentName(selectedDepartmentId) : "All Departments" },
+        { Metric: "Status Filter", Value: statusFilters.find(f => f.value === selectedStatus)?.label || "All" },
+        { Metric: "Priority Filter", Value: priorityFilters.find(f => f.value === selectedPriority)?.label || "All" },
+        { Metric: "", Value: "" },
         { Metric: "Total Work Orders", Value: stats.total },
         { Metric: "Open", Value: stats.open },
         { Metric: "In Progress", Value: stats.inProgress },
         { Metric: "Pending", Value: stats.pending },
         { Metric: "Completed", Value: stats.completed },
+        { Metric: "Overdue", Value: overdueCount },
+        { Metric: "", Value: "" },
         { Metric: "Critical Priority", Value: stats.critical },
+        { Metric: "High Priority", Value: filteredWorkOrders.filter(wo => wo.priority === "high").length },
+        { Metric: "Medium Priority", Value: filteredWorkOrders.filter(wo => wo.priority === "medium").length },
+        { Metric: "Low Priority", Value: filteredWorkOrders.filter(wo => wo.priority === "low").length },
       ];
       const summarySheet = XLSX.utils.json_to_sheet(summaryData);
       XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+
+      // Department breakdown sheet
+      const deptBreakdown = hierarchicalDepartments.map(dept => {
+        const deptWOs = filteredWorkOrders.filter(wo => wo.department_id === dept.id);
+        return {
+          Department: dept.name,
+          "Total Work Orders": deptWOs.length,
+          Open: deptWOs.filter(wo => wo.status === "open").length,
+          "In Progress": deptWOs.filter(wo => wo.status === "in-progress").length,
+          Pending: deptWOs.filter(wo => wo.status === "pending").length,
+          Completed: deptWOs.filter(wo => wo.status === "completed").length,
+          Critical: deptWOs.filter(wo => wo.priority === "critical").length,
+          Overdue: deptWOs.filter(wo => wo.status !== "completed" && wo.due_date && new Date(wo.due_date) < new Date()).length,
+        };
+      }).filter(d => d["Total Work Orders"] > 0);
+      
+      if (deptBreakdown.length > 0) {
+        const deptSheet = XLSX.utils.json_to_sheet(deptBreakdown);
+        XLSX.utils.book_append_sheet(workbook, deptSheet, "By Department");
+      }
+
+      // Priority breakdown sheet
+      const priorityBreakdown = [
+        { Priority: "Critical", Count: stats.critical },
+        { Priority: "High", Count: filteredWorkOrders.filter(wo => wo.priority === "high").length },
+        { Priority: "Medium", Count: filteredWorkOrders.filter(wo => wo.priority === "medium").length },
+        { Priority: "Low", Count: filteredWorkOrders.filter(wo => wo.priority === "low").length },
+      ];
+      const prioritySheet = XLSX.utils.json_to_sheet(priorityBreakdown);
+      XLSX.utils.book_append_sheet(workbook, prioritySheet, "By Priority");
 
       XLSX.writeFile(workbook, `work-order-report-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
       toast({ title: "Export Complete", description: "Excel report downloaded successfully" });
@@ -462,7 +533,7 @@ export default function WorkOrderReport() {
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
           <div className="stat-card">
             <p className="text-sm text-muted-foreground">Total</p>
             <p className="text-2xl font-bold">{stats.total}</p>
@@ -487,6 +558,10 @@ export default function WorkOrderReport() {
             <p className="text-sm text-muted-foreground">Critical</p>
             <p className="text-2xl font-bold text-destructive">{stats.critical}</p>
           </div>
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Overdue</p>
+            <p className="text-2xl font-bold text-destructive">{overdueCount}</p>
+          </div>
         </div>
 
         {/* Data Table */}
@@ -505,11 +580,11 @@ export default function WorkOrderReport() {
                 <TableRow>
                   <TableHead>Title</TableHead>
                   <TableHead>Department</TableHead>
+                  <TableHead>Created By</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Priority</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Created By</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Created</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -520,27 +595,39 @@ export default function WorkOrderReport() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredWorkOrders.map((wo) => (
-                    <TableRow key={wo.id}>
-                      <TableCell className="font-medium">{wo.title}</TableCell>
-                      <TableCell>{getDepartmentName(wo.department_id)}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(wo.status)}>
-                          {wo.status.charAt(0).toUpperCase() + wo.status.slice(1).replace("-", " ")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span className={cn("font-medium", getPriorityColor(wo.priority))}>
-                          {wo.priority.charAt(0).toUpperCase() + wo.priority.slice(1)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{wo.location || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{wo.creator_name || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {format(new Date(wo.created_at), "MMM d, yyyy")}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filteredWorkOrders.map((wo) => {
+                    const isOverdue = wo.status !== "completed" && wo.due_date && new Date(wo.due_date) < new Date();
+                    return (
+                      <TableRow key={wo.id}>
+                        <TableCell className="font-medium max-w-[200px] truncate">{wo.title}</TableCell>
+                        <TableCell>{getDepartmentName(wo.department_id)}</TableCell>
+                        <TableCell className="text-muted-foreground">{wo.creator_name || "Unknown"}</TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(wo.status)}>
+                            {wo.status.charAt(0).toUpperCase() + wo.status.slice(1).replace("-", " ")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className={cn("font-medium", getPriorityColor(wo.priority))}>
+                            {wo.priority.charAt(0).toUpperCase() + wo.priority.slice(1)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {wo.due_date ? (
+                            <span className={cn(isOverdue && "text-destructive font-medium")}>
+                              {format(new Date(wo.due_date), "MMM d, yyyy")}
+                              {isOverdue && " ⚠"}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {format(new Date(wo.created_at), "MMM d, yyyy")}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

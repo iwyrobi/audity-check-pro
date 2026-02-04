@@ -157,8 +157,9 @@ export default function InspectionReport() {
       : 0;
     const excellent = completed.filter((i) => (i.percentage || 0) >= 90).length;
     const poor = completed.filter((i) => (i.percentage || 0) < 70).length;
+    const totalDefects = filteredInspections.reduce((acc, i) => acc + (i.defect_count || 0), 0);
     
-    return { total: filteredInspections.length, completed: completed.length, avgScore, excellent, poor };
+    return { total: filteredInspections.length, completed: completed.length, avgScore, excellent, poor, totalDefects };
   }, [filteredInspections]);
 
   const getDepartmentName = (deptId: string) => {
@@ -181,28 +182,41 @@ export default function InspectionReport() {
       
       pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
-      pdf.text(`Generated on ${format(new Date(), "MMMM d, yyyy")}`, margin, 28);
+      pdf.text(`Generated on ${format(new Date(), "MMMM d, yyyy HH:mm")}`, margin, 28);
       pdf.text(`Date Range: ${dateFilters.find(f => f.value === selectedDateRange)?.label || "All Time"}`, margin, 34);
+      
+      let filterY = 40;
       if (selectedDepartmentId !== "all") {
-        pdf.text(`Department: ${getDepartmentName(selectedDepartmentId)}`, margin, 40);
+        pdf.text(`Department: ${getDepartmentName(selectedDepartmentId)}`, margin, filterY);
+        filterY += 6;
+      }
+      if (selectedStatus !== "all") {
+        pdf.text(`Status: ${statusFilters.find(f => f.value === selectedStatus)?.label}`, margin, filterY);
+        filterY += 6;
+      }
+      if (selectedScore !== "all") {
+        pdf.text(`Score Filter: ${scoreFilters.find(f => f.value === selectedScore)?.label}`, margin, filterY);
+        filterY += 6;
       }
 
       // Summary
       pdf.setFontSize(14);
       pdf.setFont("helvetica", "bold");
-      pdf.text("Summary", margin, 52);
+      pdf.text("Summary", margin, filterY + 8);
       
       pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
       const summary = [
         `Total Inspections: ${stats.total}`,
         `Completed: ${stats.completed}`,
+        `In Progress: ${stats.total - stats.completed}`,
         `Average Score: ${stats.avgScore}%`,
         `Excellent (90%+): ${stats.excellent}`,
         `Poor (<70%): ${stats.poor}`,
+        `Total Defects Found: ${stats.totalDefects}`,
       ];
       summary.forEach((text, i) => {
-        pdf.text(text, margin, 60 + i * 6);
+        pdf.text(text, margin, filterY + 16 + i * 6);
       });
 
       // Table
@@ -211,15 +225,15 @@ export default function InspectionReport() {
       pdf.setFont("helvetica", "bold");
       pdf.text("Inspection Details", margin, 20);
 
-      const headers = ["Title", "Department", "Status", "Score", "Date"];
-      const colWidths = [80, 50, 35, 25, 40];
+      const headers = ["Title", "Template", "Department", "Inspector", "Status", "Score", "Defects", "Date"];
+      const colWidths = [50, 40, 35, 35, 25, 20, 20, 30];
       let startX = margin;
       let startY = 30;
 
       pdf.setFillColor(240, 240, 240);
       pdf.rect(margin, startY - 5, pageWidth - margin * 2, 10, "F");
       
-      pdf.setFontSize(10);
+      pdf.setFontSize(9);
       pdf.setFont("helvetica", "bold");
       headers.forEach((header, i) => {
         pdf.text(header, startX, startY);
@@ -236,10 +250,13 @@ export default function InspectionReport() {
         }
         startX = margin;
         const row = [
-          insp.title.length > 35 ? insp.title.substring(0, 32) + "..." : insp.title,
-          getDepartmentName(insp.department_id),
-          insp.status === "completed" ? "Completed" : "Draft",
+          insp.title.length > 25 ? insp.title.substring(0, 22) + "..." : insp.title,
+          (insp.template_name || "N/A").length > 20 ? (insp.template_name || "").substring(0, 17) + "..." : (insp.template_name || "N/A"),
+          getDepartmentName(insp.department_id).length > 18 ? getDepartmentName(insp.department_id).substring(0, 15) + "..." : getDepartmentName(insp.department_id),
+          (insp.creator_name || "Unknown").length > 18 ? (insp.creator_name || "").substring(0, 15) + "..." : (insp.creator_name || "Unknown"),
+          insp.status === "completed" ? "Done" : "In Prog",
           insp.percentage !== null ? `${Math.round(insp.percentage)}%` : "N/A",
+          String(insp.defect_count || 0),
           format(new Date(insp.created_at), "MMM d, yyyy"),
         ];
         row.forEach((cell, i) => {
@@ -265,31 +282,69 @@ export default function InspectionReport() {
       const XLSX = await import("xlsx");
       const workbook = XLSX.utils.book_new();
 
-      // Details sheet
+      // Details sheet with more columns
       const data = filteredInspections.map((i) => ({
         Title: i.title,
+        "Template Name": i.template_name || "N/A",
         Department: getDepartmentName(i.department_id),
-        Status: i.status === "completed" ? "Completed" : "Draft",
-        Score: i.percentage !== null ? `${Math.round(i.percentage)}%` : "N/A",
-        "Total Score": i.total_score || 0,
-        "Max Score": i.max_score || 0,
+        "Inspector Name": i.creator_name || "Unknown",
+        Status: i.status === "completed" ? "Completed" : "In Progress",
+        "Score (%)": i.percentage !== null ? Math.round(i.percentage) : "N/A",
+        "Score Earned": i.total_score || 0,
+        "Max Possible Score": i.max_score || 0,
+        "Defects Found": i.defect_count || 0,
         Location: i.location || "",
-        "Created Date": format(new Date(i.created_at), "yyyy-MM-dd"),
-        "Completed Date": i.completed_at ? format(new Date(i.completed_at), "yyyy-MM-dd") : "",
+        "Created Date": format(new Date(i.created_at), "yyyy-MM-dd HH:mm"),
+        "Completed Date": i.completed_at ? format(new Date(i.completed_at), "yyyy-MM-dd HH:mm") : "",
+        "Duration (Days)": i.completed_at 
+          ? Math.ceil((new Date(i.completed_at).getTime() - new Date(i.created_at).getTime()) / (1000 * 60 * 60 * 24))
+          : "",
       }));
       const sheet = XLSX.utils.json_to_sheet(data);
       XLSX.utils.book_append_sheet(workbook, sheet, "Inspections");
 
-      // Summary sheet
+      // Summary sheet with more metrics
       const summaryData = [
+        { Metric: "Report Generated", Value: format(new Date(), "yyyy-MM-dd HH:mm") },
+        { Metric: "Date Range", Value: dateFilters.find(f => f.value === selectedDateRange)?.label || "All Time" },
+        { Metric: "Department Filter", Value: selectedDepartmentId !== "all" ? getDepartmentName(selectedDepartmentId) : "All Departments" },
+        { Metric: "Status Filter", Value: statusFilters.find(f => f.value === selectedStatus)?.label || "All" },
+        { Metric: "Score Filter", Value: scoreFilters.find(f => f.value === selectedScore)?.label || "All" },
+        { Metric: "", Value: "" },
         { Metric: "Total Inspections", Value: stats.total },
         { Metric: "Completed", Value: stats.completed },
+        { Metric: "In Progress", Value: stats.total - stats.completed },
         { Metric: "Average Score", Value: `${stats.avgScore}%` },
         { Metric: "Excellent (90%+)", Value: stats.excellent },
+        { Metric: "Good (80-89%)", Value: filteredInspections.filter(i => (i.percentage || 0) >= 80 && (i.percentage || 0) < 90).length },
+        { Metric: "Fair (70-79%)", Value: filteredInspections.filter(i => (i.percentage || 0) >= 70 && (i.percentage || 0) < 80).length },
         { Metric: "Poor (<70%)", Value: stats.poor },
+        { Metric: "Total Defects Found", Value: stats.totalDefects },
       ];
       const summarySheet = XLSX.utils.json_to_sheet(summaryData);
       XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+
+      // Department breakdown sheet
+      const deptBreakdown = hierarchicalDepartments.map(dept => {
+        const deptInspections = filteredInspections.filter(i => i.department_id === dept.id);
+        const completed = deptInspections.filter(i => i.status === "completed");
+        const avgScore = completed.length > 0 
+          ? Math.round(completed.reduce((acc, i) => acc + (i.percentage || 0), 0) / completed.length)
+          : 0;
+        return {
+          Department: dept.name,
+          "Total Inspections": deptInspections.length,
+          Completed: completed.length,
+          "In Progress": deptInspections.length - completed.length,
+          "Average Score": `${avgScore}%`,
+          "Total Defects": deptInspections.reduce((acc, i) => acc + (i.defect_count || 0), 0),
+        };
+      }).filter(d => d["Total Inspections"] > 0);
+      
+      if (deptBreakdown.length > 0) {
+        const deptSheet = XLSX.utils.json_to_sheet(deptBreakdown);
+        XLSX.utils.book_append_sheet(workbook, deptSheet, "By Department");
+      }
 
       XLSX.writeFile(workbook, `inspection-report-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
       toast({ title: "Export Complete", description: "Excel report downloaded successfully" });
@@ -453,7 +508,7 @@ export default function InspectionReport() {
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <div className="stat-card">
             <p className="text-sm text-muted-foreground">Total</p>
             <p className="text-2xl font-bold">{stats.total}</p>
@@ -474,6 +529,10 @@ export default function InspectionReport() {
             <p className="text-sm text-muted-foreground">Poor</p>
             <p className="text-2xl font-bold text-destructive">{stats.poor}</p>
           </div>
+          <div className="stat-card">
+            <p className="text-sm text-muted-foreground">Defects</p>
+            <p className="text-2xl font-bold text-warning">{stats.totalDefects}</p>
+          </div>
         </div>
 
         {/* Data Table */}
@@ -491,28 +550,34 @@ export default function InspectionReport() {
               <TableHeader className="sticky top-0 bg-background">
                 <TableRow>
                   <TableHead>Title</TableHead>
+                  <TableHead>Template</TableHead>
                   <TableHead>Department</TableHead>
+                  <TableHead>Inspector</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Score</TableHead>
-                  <TableHead>Location</TableHead>
+                  <TableHead>Defects</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredInspections.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       No inspections found matching your filters
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredInspections.map((insp) => (
                     <TableRow key={insp.id}>
-                      <TableCell className="font-medium">{insp.title}</TableCell>
+                      <TableCell className="font-medium max-w-[200px] truncate">{insp.title}</TableCell>
+                      <TableCell className="text-muted-foreground max-w-[150px] truncate">
+                        {insp.template_name || "N/A"}
+                      </TableCell>
                       <TableCell>{getDepartmentName(insp.department_id)}</TableCell>
+                      <TableCell className="text-muted-foreground">{insp.creator_name || "Unknown"}</TableCell>
                       <TableCell>
                         <Badge variant={insp.status === "completed" ? "default" : "secondary"}>
-                          {insp.status === "completed" ? "Completed" : "Draft"}
+                          {insp.status === "completed" ? "Completed" : "In Progress"}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -529,7 +594,13 @@ export default function InspectionReport() {
                           <span className="text-muted-foreground">N/A</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{insp.location || "—"}</TableCell>
+                      <TableCell>
+                        {(insp.defect_count || 0) > 0 ? (
+                          <Badge variant="destructive">{insp.defect_count}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {format(new Date(insp.created_at), "MMM d, yyyy")}
                       </TableCell>
