@@ -9,21 +9,33 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Plus,
   Bell,
   X,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const baseNavigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard, roles: ["all"] },
   { name: "Checklists", href: "/checklists", icon: ClipboardCheck, roles: ["super_admin", "admin", "user"] },
   { name: "Inspections", href: "/inspections", icon: ClipboardList, roles: ["all"] },
   { name: "Work Orders", href: "/work-orders", icon: Wrench, roles: ["all"] },
-  { name: "Reports", href: "/reports", icon: FileText, roles: ["all"] },
   { name: "Settings", href: "/settings", icon: Settings, roles: ["super_admin"] },
+];
+
+const reportsSubmenu = [
+  { name: "Dashboard", href: "/reports", icon: BarChart3 },
+  { name: "Inspection Report", href: "/reports/inspections", icon: ClipboardList },
+  { name: "Work Order Report", href: "/reports/work-orders", icon: Wrench },
 ];
 
 interface AppSidebarProps {
@@ -35,6 +47,10 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { department, isSuperAdmin, isAdmin, isDepartmentHead, roles } = useAuth();
+
+  // Check if current route is under reports
+  const isReportsActive = location.pathname.startsWith("/reports");
+  const [reportsOpen, setReportsOpen] = useState(isReportsActive);
 
   // Filter navigation based on user role
   const userRole = roles.find((r) => r.role === "super_admin")?.role ||
@@ -127,6 +143,59 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             </NavLink>
           );
         })}
+
+        {/* Reports with submenu */}
+        {collapsed ? (
+          <NavLink
+            to="/reports"
+            onClick={onClose}
+            className={cn(
+              "nav-item",
+              isReportsActive && "nav-item-active"
+            )}
+          >
+            <FileText className="w-5 h-5 flex-shrink-0" />
+          </NavLink>
+        ) : (
+          <Collapsible open={reportsOpen} onOpenChange={setReportsOpen}>
+            <CollapsibleTrigger asChild>
+              <button
+                className={cn(
+                  "nav-item w-full justify-between",
+                  isReportsActive && "nav-item-active"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 flex-shrink-0" />
+                  <span>Reports</span>
+                </div>
+                <ChevronDown className={cn(
+                  "w-4 h-4 transition-transform",
+                  reportsOpen && "rotate-180"
+                )} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pl-4 mt-1 space-y-1">
+              {reportsSubmenu.map((subItem) => {
+                const isSubActive = location.pathname === subItem.href;
+                return (
+                  <NavLink
+                    key={subItem.name}
+                    to={subItem.href}
+                    onClick={onClose}
+                    className={cn(
+                      "nav-item text-sm",
+                      isSubActive && "nav-item-active"
+                    )}
+                  >
+                    <subItem.icon className="w-4 h-4 flex-shrink-0" />
+                    <span>{subItem.name}</span>
+                  </NavLink>
+                );
+              })}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
       </nav>
 
       {/* Notifications indicator */}

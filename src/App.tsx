@@ -11,6 +11,8 @@ import Inspections from "./pages/Inspections";
 import InspectionDetail from "./pages/InspectionDetail";
 import WorkOrders from "./pages/WorkOrders";
 import Reports from "./pages/Reports";
+import InspectionReport from "./pages/InspectionReport";
+import WorkOrderReport from "./pages/WorkOrderReport";
 import Settings from "./pages/Settings";
 import RunInspection from "./pages/RunInspection";
 import NotFound from "./pages/NotFound";
@@ -77,6 +79,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Reports />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports/inspections"
+        element={
+          <ProtectedRoute>
+            <InspectionReport />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports/work-orders"
+        element={
+          <ProtectedRoute>
+            <WorkOrderReport />
           </ProtectedRoute>
         }
       />
