@@ -1,4 +1,5 @@
-import { ClipboardCheck, MoreVertical, Calendar, User, Play, Pencil, Copy, Archive, Building2 } from "lucide-react";
+import { useState } from "react";
+import { ClipboardCheck, MoreVertical, Calendar, User, Play, Pencil, Copy, Archive, Building2, CalendarClock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +12,9 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { startOfDay, endOfDay } from "date-fns";
 
 export interface Checklist {
   id: string;
@@ -47,11 +51,49 @@ export function ChecklistCard({
   onArchive 
 }: ChecklistCardProps) {
   const navigate = useNavigate();
-  const { isAdmin, isDepartmentHead } = useAuth();
+  const { isAdmin, isDepartmentHead, user } = useAuth();
+  const { toast } = useToast();
+  const [checkingDaily, setCheckingDaily] = useState(false);
   const canManage = isAdmin || isDepartmentHead;
 
-  const handleStartInspection = (e: React.MouseEvent) => {
+  const handleStartInspection = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Check if once_daily is enabled and if already executed today
+    if (templateData?.once_daily && user) {
+      setCheckingDaily(true);
+      try {
+        const today = new Date();
+        const todayStart = startOfDay(today).toISOString();
+        const todayEnd = endOfDay(today).toISOString();
+        
+        const { data: existingInspections, error } = await supabase
+          .from("inspections")
+          .select("id")
+          .eq("template_id", checklist.id)
+          .eq("created_by", user.id)
+          .gte("created_at", todayStart)
+          .lte("created_at", todayEnd)
+          .limit(1);
+        
+        if (error) throw error;
+        
+        if (existingInspections && existingInspections.length > 0) {
+          toast({
+            title: "Already completed today",
+            description: "This checklist can only be executed once per day. You have already started it today.",
+            variant: "destructive",
+          });
+          setCheckingDaily(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking daily limit:", error);
+      } finally {
+        setCheckingDaily(false);
+      }
+    }
+    
     navigate("/run-inspection", { 
       state: { 
         templateId: checklist.id,
@@ -139,18 +181,32 @@ export function ChecklistCard({
       </div>
 
       <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
-        <span className="text-xs font-medium text-accent flex items-center gap-1">
-          <Building2 className="w-3.5 h-3.5" />
-          {checklist.departmentName || "No Department"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-accent flex items-center gap-1">
+            <Building2 className="w-3.5 h-3.5" />
+            {checklist.departmentName || "No Department"}
+          </span>
+          {templateData?.once_daily && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1" title="Once daily">
+              <CalendarClock className="w-3.5 h-3.5" />
+            </span>
+          )}
+        </div>
         {checklist.status === "active" && (
           <Button
             size="sm"
             className="bg-primary text-primary-foreground hover:bg-primary/90 h-8"
             onClick={handleStartInspection}
+            disabled={checkingDaily}
           >
-            <Play className="w-3.5 h-3.5 mr-1" />
-            Start
+            {checkingDaily ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 mr-1" />
+                Start
+              </>
+            )}
           </Button>
         )}
       </div>
