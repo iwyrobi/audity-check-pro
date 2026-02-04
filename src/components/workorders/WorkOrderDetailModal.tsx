@@ -451,6 +451,19 @@ export function WorkOrderDetailModal({
       
       if (status === "completed" && workOrder.status !== "completed") {
         updates.completed_at = new Date().toISOString();
+        
+        // Auto-add current user to completers if not already there
+        if (user) {
+          const isAlreadyCompleter = completers.some(c => c.user_id === user.id);
+          if (!isAlreadyCompleter) {
+            await supabase
+              .from("work_order_completers")
+              .insert({
+                work_order_id: workOrder.id,
+                user_id: user.id,
+              });
+          }
+        }
       }
 
       const success = await onUpdate(workOrder.id, updates);
