@@ -48,6 +48,7 @@ export default function Checklists() {
   const handleSaveTemplate = async (templateData: {
     title: string;
     description: string;
+    onceDaily: boolean;
     sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[];
   }) => {
     if (editingTemplate) {
@@ -56,7 +57,8 @@ export default function Checklists() {
         editingTemplate.id,
         templateData.title,
         templateData.description,
-        templateData.sections
+        templateData.sections,
+        templateData.onceDaily
       );
       if (result) {
         setIsCreateModalOpen(false);
@@ -68,7 +70,8 @@ export default function Checklists() {
         templateData.title,
         templateData.description,
         department?.name || "General",
-        templateData.sections
+        templateData.sections,
+        templateData.onceDaily
       );
       if (result) {
         setIsCreateModalOpen(false);

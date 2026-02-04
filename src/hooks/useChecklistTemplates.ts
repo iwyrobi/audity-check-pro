@@ -11,6 +11,7 @@ export interface ChecklistTemplateDB {
   category: string | null;
   created_by: string | null;
   created_at: string;
+  once_daily: boolean;
   sections?: TemplateSectionDB[];
   department?: {
     id: string;
@@ -98,7 +99,8 @@ export function useChecklistTemplates() {
     name: string,
     description: string,
     category: string,
-    sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[]
+    sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[],
+    onceDaily: boolean = false
   ) => {
     if (!user || !profile?.department_id) {
       toast({
@@ -119,6 +121,7 @@ export function useChecklistTemplates() {
           description,
           category,
           created_by: user.id,
+          once_daily: onceDaily,
         })
         .select()
         .single();
@@ -176,7 +179,8 @@ export function useChecklistTemplates() {
     templateId: string,
     name: string,
     description: string,
-    sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[]
+    sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[],
+    onceDaily: boolean = false
   ) => {
     if (!user) return null;
 
@@ -184,7 +188,7 @@ export function useChecklistTemplates() {
       // Update template
       const { error: templateError } = await supabase
         .from("checklist_templates")
-        .update({ name, description })
+        .update({ name, description, once_daily: onceDaily })
         .eq("id", templateId);
 
       if (templateError) throw templateError;

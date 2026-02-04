@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Save, ClipboardCheck, Copy } from "lucide-react";
+import { X, Save, ClipboardCheck, Copy, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { TemplateBuilder, TemplateSection } from "./TemplateBuilder";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +21,7 @@ interface CreateTemplateModalProps {
   onSave: (template: {
     title: string;
     description: string;
+    onceDaily: boolean;
     sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[];
   }) => void;
   editTemplate?: ChecklistTemplateDB | null;
@@ -30,6 +32,7 @@ export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyT
   const { department } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [onceDaily, setOnceDaily] = useState(false);
   const [sections, setSections] = useState<TemplateSection[]>([
     {
       id: "section-1",
@@ -53,6 +56,7 @@ export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyT
     if (template && open) {
       setTitle(copyTemplate ? `${template.name} (Copy)` : template.name);
       setDescription(template.description || "");
+      setOnceDaily(template.once_daily || false);
       
       if (template.sections && template.sections.length > 0) {
         setSections(
@@ -74,6 +78,7 @@ export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyT
       // Reset form for new template
       setTitle("");
       setDescription("");
+      setOnceDaily(false);
       setSections([
         {
           id: "section-1",
@@ -108,6 +113,7 @@ export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyT
     const templateData = {
       title,
       description,
+      onceDaily,
       sections: sections.map(s => ({
         title: s.title,
         questions: s.questions
@@ -127,6 +133,7 @@ export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyT
     // Reset form
     setTitle("");
     setDescription("");
+    setOnceDaily(false);
     setSections([
       {
         id: "section-1",
@@ -201,6 +208,23 @@ export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyT
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the purpose and scope of this checklist..."
               rows={3}
+            />
+          </div>
+
+          {/* Once Daily Toggle */}
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
+            <div className="flex items-center gap-3">
+              <CalendarClock className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Execute Once Daily</p>
+                <p className="text-xs text-muted-foreground">
+                  When enabled, this checklist can only be started once per day
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={onceDaily}
+              onCheckedChange={setOnceDaily}
             />
           </div>
 
