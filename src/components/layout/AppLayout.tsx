@@ -106,6 +106,13 @@ export function AppLayout({ children, title }: AppLayoutProps) {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => window.location.href = "/profile"} 
+                  className="cursor-pointer"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  My Profile
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={signOut} className="text-destructive cursor-pointer">
                   <LogOut className="w-4 h-4 mr-2" />
                   Sign out
