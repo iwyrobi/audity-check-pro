@@ -290,18 +290,6 @@ export function InspectionRunner({
                           >
                             <Camera className="w-4 h-4" />
                           </Button>
-
-                          {isDefect && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => onCreateWorkOrder(question, section)}
-                              className="border-destructive/50 text-destructive hover:bg-destructive/10"
-                            >
-                              <Wrench className="w-4 h-4 mr-1" />
-                              Create WO
-                            </Button>
-                          )}
                         </div>
                       </div>
 
@@ -334,12 +322,16 @@ export function InspectionRunner({
 
                       {/* Defect indicator */}
                       {isDefect && (
-                        <div className="mt-3 ml-6 flex items-center gap-2 text-destructive">
+                        <button
+                          onClick={() => onCreateWorkOrder(question, section)}
+                          className="mt-3 ml-6 flex items-center gap-2 text-destructive hover:bg-destructive/10 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                        >
                           <AlertTriangle className="w-4 h-4" />
                           <span className="text-sm font-medium">
-                            Defect identified - Create work order to address
+                            Defect identified - Click to create work order
                           </span>
-                        </div>
+                          <Wrench className="w-4 h-4 ml-1" />
+                        </button>
                       )}
                     </div>
                   );
