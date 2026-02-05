@@ -36,6 +36,7 @@ export default function RunInspection() {
     open: boolean;
     question?: QuestionItem;
     section?: TemplateSection;
+    questionId?: string;
   }>({ open: false });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!resumeInspectionId);
@@ -195,7 +196,18 @@ export default function RunInspection() {
   };
 
   const handleCreateWorkOrder = (question: QuestionItem, section: TemplateSection) => {
-    setWorkOrderModal({ open: true, question, section });
+    setWorkOrderModal({ open: true, question, section, questionId: question.id });
+  };
+
+  const handleCancelWorkOrder = () => {
+    // Revert the answer when canceling the work order modal
+    if (workOrderModal.questionId) {
+      setAnswers((prev) => {
+        const updated = { ...prev };
+        delete updated[workOrderModal.questionId!];
+        return updated;
+      });
+    }
   };
 
   const handleSaveWorkOrder = async (data: any) => {
@@ -454,6 +466,7 @@ export default function RunInspection() {
         <CreateWorkOrderFromDefect
           open={workOrderModal.open}
           onClose={() => setWorkOrderModal({ open: false })}
+          onCancel={handleCancelWorkOrder}
           defect={
             workOrderModal.question && workOrderModal.section
               ? {
