@@ -329,10 +329,14 @@ export type Database = {
       }
       organizations: {
         Row: {
+          address: string | null
           created_at: string
+          email: string | null
           id: string
           is_active: boolean
+          logo_url: string | null
           name: string
+          phone: string | null
           slug: string
           storage_used_bytes: number
           stripe_customer_id: string | null
@@ -341,12 +345,17 @@ export type Database = {
           subscription_plan_id: string
           trial_ends_at: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
+          address?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           is_active?: boolean
+          logo_url?: string | null
           name: string
+          phone?: string | null
           slug: string
           storage_used_bytes?: number
           stripe_customer_id?: string | null
@@ -355,12 +364,17 @@ export type Database = {
           subscription_plan_id: string
           trial_ends_at?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
+          address?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           is_active?: boolean
+          logo_url?: string | null
           name?: string
+          phone?: string | null
           slug?: string
           storage_used_bytes?: number
           stripe_customer_id?: string | null
@@ -369,6 +383,7 @@ export type Database = {
           subscription_plan_id?: string
           trial_ends_at?: string | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: [
           {

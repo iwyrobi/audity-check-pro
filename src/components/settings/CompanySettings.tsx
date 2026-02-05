@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Building, Loader2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-interface CompanySettingsData {
+interface OrganizationSettingsData {
   id: string;
   name: string;
   logo_url: string | null;
@@ -17,13 +17,13 @@ interface CompanySettingsData {
   website: string | null;
 }
 
-export function CompanySettings() {
-  const { isSuperAdmin } = useAuth();
+export function OrganizationSettings() {
+  const { isSuperAdmin, profile } = useAuth();
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState<CompanySettingsData>({
+  const [formData, setFormData] = useState<OrganizationSettingsData>({
     id: "",
     name: "",
     logo_url: null,
@@ -34,16 +34,22 @@ export function CompanySettings() {
   });
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    if (profile?.organization_id) {
+      fetchSettings();
+    } else {
+      setLoading(false);
+    }
+  }, [profile?.organization_id]);
 
   const fetchSettings = async () => {
+    if (!profile?.organization_id) return;
+    
     try {
       const { data, error } = await supabase
-        .from("company_settings")
-        .select("*")
-        .limit(1)
-        .single();
+        .from("organizations")
+        .select("id, name, logo_url, address, phone, email, website")
+        .eq("id", profile.organization_id)
+        .maybeSingle();
 
       if (error) throw error;
       
@@ -51,15 +57,15 @@ export function CompanySettings() {
         setFormData({
           id: data.id,
           name: data.name,
-          logo_url: data.logo_url,
-          address: data.address,
-          phone: data.phone,
-          email: data.email,
-          website: data.website,
+          logo_url: data.logo_url || null,
+          address: data.address || null,
+          phone: data.phone || null,
+          email: data.email || null,
+          website: data.website || null,
         });
       }
     } catch (error: any) {
-      console.error("Error fetching company settings:", error);
+      console.error("Error fetching organization settings:", error);
     } finally {
       setLoading(false);
     }
@@ -67,14 +73,14 @@ export function CompanySettings() {
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      toast({ title: "Company name is required", variant: "destructive" });
+      toast({ title: "Organization name is required", variant: "destructive" });
       return;
     }
 
     setSaving(true);
     try {
       const { error } = await supabase
-        .from("company_settings")
+        .from("organizations")
         .update({
           name: formData.name.trim(),
           logo_url: formData.logo_url?.trim() || null,
@@ -86,9 +92,9 @@ export function CompanySettings() {
         .eq("id", formData.id);
 
       if (error) throw error;
-      toast({ title: "Company settings saved" });
+      toast({ title: "Organization settings saved" });
     } catch (error: any) {
-      console.error("Error saving company settings:", error);
+      console.error("Error saving organization settings:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to save settings",
@@ -102,7 +108,15 @@ export function CompanySettings() {
   if (!isSuperAdmin) {
     return (
       <div className="p-6 text-center text-muted-foreground">
-        Only super administrators can manage company settings.
+        Only super administrators can manage organization settings.
+      </div>
+    );
+  }
+
+  if (!profile?.organization_id) {
+    return (
+      <div className="p-6 text-center text-muted-foreground">
+        No organization assigned to your profile.
       </div>
     );
   }
@@ -120,7 +134,7 @@ export function CompanySettings() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Building className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold">Company Information</h3>
+          <h3 className="font-semibold">Organization Information</h3>
         </div>
         <Button onClick={handleSave} disabled={saving}>
           {saving ? (
@@ -135,11 +149,11 @@ export function CompanySettings() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Company Name *</label>
+            <label className="text-sm font-medium mb-1.5 block">Organization Name *</label>
             <Input
               value={formData.name}
               onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="Enter company name"
+              placeholder="Enter organization name"
             />
           </div>
 
@@ -151,7 +165,7 @@ export function CompanySettings() {
               placeholder="https://example.com/logo.png"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              URL to your company logo image
+              URL to your organization logo image
             </p>
           </div>
 
@@ -202,7 +216,7 @@ export function CompanySettings() {
           <p className="text-sm font-medium mb-2">Logo Preview</p>
           <img
             src={formData.logo_url}
-            alt="Company Logo"
+            alt="Organization Logo"
             className="max-h-20 object-contain"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
@@ -213,3 +227,6 @@ export function CompanySettings() {
     </div>
   );
 }
+
+// Keep backward compatible export
+export { OrganizationSettings as CompanySettings };
