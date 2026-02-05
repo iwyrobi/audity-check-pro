@@ -21,6 +21,7 @@ import { toast } from "sonner";
 interface CreateWorkOrderFromDefectProps {
   open: boolean;
   onClose: () => void;
+  onCancel?: () => void;
   defect?: {
     questionText: string;
     sectionTitle: string;
@@ -47,6 +48,7 @@ const assignees = [
 export function CreateWorkOrderFromDefect({
   open,
   onClose,
+  onCancel,
   defect,
   onSave,
 }: CreateWorkOrderFromDefectProps) {
@@ -60,6 +62,17 @@ export function CreateWorkOrderFromDefect({
   const [priority, setPriority] = useState("medium");
   const [assignedTo, setAssignedTo] = useState("");
   const [dueDate, setDueDate] = useState("");
+
+  const handleCancel = () => {
+    onCancel?.();
+    onClose();
+  };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      handleCancel();
+    }
+  };
 
   const handleSave = () => {
     if (!title.trim()) {
@@ -86,7 +99,7 @@ export function CreateWorkOrderFromDefect({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
@@ -197,7 +210,7 @@ export function CreateWorkOrderFromDefect({
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
           <Button onClick={handleSave} className="bg-accent text-accent-foreground hover:bg-accent/90">
