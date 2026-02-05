@@ -58,7 +58,11 @@ export function InspectionRunner({
     );
   };
 
-  const handleYesNoAnswer = (question: QuestionItem, value: "yes" | "no" | "na") => {
+  const handleYesNoAnswer = (
+    question: QuestionItem,
+    value: "yes" | "no" | "na",
+    section?: TemplateSection
+  ) => {
     const isDefect = value === "no";
     const score = value === "yes" ? question.score : 0;
     onAnswer(question.id, {
@@ -67,6 +71,11 @@ export function InspectionRunner({
       maxScore: question.score,
       isDefect,
     });
+
+    // Automatically open create work order modal when defect is identified
+    if (isDefect && section) {
+      onCreateWorkOrder(question, section);
+    }
   };
 
   const handleScoreAnswer = (question: QuestionItem, value: number) => {
@@ -185,7 +194,7 @@ export function InspectionRunner({
                           {question.type === "yes-no" && (
                             <div className="flex items-center gap-1">
                               <button
-                                onClick={() => handleYesNoAnswer(question, "yes")}
+                                onClick={() => handleYesNoAnswer(question, "yes", section)}
                                 className={cn(
                                   "p-2 rounded-lg border transition-all",
                                   answer?.value === "yes"
@@ -196,7 +205,7 @@ export function InspectionRunner({
                                 <CheckCircle2 className="w-6 h-6" />
                               </button>
                               <button
-                                onClick={() => handleYesNoAnswer(question, "no")}
+                                onClick={() => handleYesNoAnswer(question, "no", section)}
                                 className={cn(
                                   "p-2 rounded-lg border transition-all",
                                   answer?.value === "no"
@@ -207,7 +216,7 @@ export function InspectionRunner({
                                 <XCircle className="w-6 h-6" />
                               </button>
                               <button
-                                onClick={() => handleYesNoAnswer(question, "na")}
+                                onClick={() => handleYesNoAnswer(question, "na", section)}
                                 className={cn(
                                   "p-2 rounded-lg border transition-all",
                                   answer?.value === "na"
