@@ -73,3 +73,8 @@ To connect a domain, navigate to Project > Settings > Domains and click Connect 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
 
                                             Company harusnya jadi organization.
+
+- Create WO to other department not working
+- Create WO from defect assign to department not working
+- Create / Edit User not assign to department.
+- Finish Wo not accessable from WO Owner.
