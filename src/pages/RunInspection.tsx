@@ -9,6 +9,8 @@ import { TemplateSection, QuestionItem } from "@/components/checklists/TemplateB
 import { useInspections } from "@/hooks/useInspections";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { useDepartments } from "@/hooks/useDepartments";
+import { useAuth } from "@/contexts/AuthContext";
 import { ChecklistTemplateDB } from "@/hooks/useChecklistTemplates";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -28,6 +30,8 @@ export default function RunInspection() {
   const { createInspection, saveInspectionAnswers, completeInspection } = useInspections();
   const { createWorkOrder } = useWorkOrders();
   const { isOnline, saveInspectionOffline, getOfflineInspection } = useOfflineSync();
+  const { hierarchicalDepartments } = useDepartments();
+  const { profile } = useAuth();
 
   const [inspectionId, setInspectionId] = useState<string | null>(resumeInspectionId || null);
   const [inspectionTitle, setInspectionTitle] = useState(templateName || "Daily Safety Inspection");
@@ -219,6 +223,7 @@ export default function RunInspection() {
         location: data.location,
         linkedInspectionId: inspectionId || undefined,
         linkedDefectQuestion: workOrderModal.question?.text,
+        departmentId: data.departmentId || undefined,
       });
     } else {
       toast.success("Work order created!");
@@ -477,6 +482,8 @@ export default function RunInspection() {
               : undefined
           }
           onSave={handleSaveWorkOrder}
+          departments={hierarchicalDepartments}
+          defaultDepartmentId={profile?.department_id || undefined}
         />
       </div>
     </AppLayout>

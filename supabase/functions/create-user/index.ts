@@ -89,16 +89,28 @@ serve(async (req: Request) => {
       throw new Error("Failed to create user");
     }
 
-    // Update profile with department
+    // Update profile with department and organization
+    // First, get the organization_id from the department if specified
+    let organization_id: string | null = null;
     if (department_id) {
+      const { data: deptData } = await adminClient
+        .from("departments")
+        .select("organization_id")
+        .eq("id", department_id)
+        .single();
+      organization_id = deptData?.organization_id || null;
+    }
+
+    // Update profile with department, organization, and name
+    const profileUpdate: Record<string, unknown> = {};
+    if (full_name) profileUpdate.full_name = full_name;
+    if (department_id) profileUpdate.department_id = department_id;
+    if (organization_id) profileUpdate.organization_id = organization_id;
+
+    if (Object.keys(profileUpdate).length > 0) {
       await adminClient
         .from("profiles")
-        .update({ department_id, full_name })
-        .eq("user_id", newUser.user.id);
-    } else if (full_name) {
-      await adminClient
-        .from("profiles")
-        .update({ full_name })
+        .update(profileUpdate)
         .eq("user_id", newUser.user.id);
     }
 
