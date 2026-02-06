@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   Download,
@@ -8,11 +8,14 @@ import {
   FileSpreadsheet,
   FileText,
   Filter,
+  AlertTriangle,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useInspections } from "@/hooks/useInspections";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
   SelectContent,
@@ -76,6 +79,17 @@ const scoreFilters = [
   { value: "below-70", label: "Below 70% (Poor)" },
 ];
 
+interface DefectItem {
+  id: string;
+  inspection_id: string;
+  inspection_title: string;
+  question_text: string;
+  notes: string | null;
+  created_at: string;
+  department_id: string;
+  inspector_name: string;
+}
+
 export default function InspectionReport() {
   const [selectedDateRange, setSelectedDateRange] = useState("this-month");
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
@@ -84,10 +98,65 @@ export default function InspectionReport() {
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedScore, setSelectedScore] = useState<string>("all");
   const [exporting, setExporting] = useState(false);
+  const [defects, setDefects] = useState<DefectItem[]>([]);
+  const [loadingDefects, setLoadingDefects] = useState(true);
 
   const { inspections, loading } = useInspections();
   const { hierarchicalDepartments } = useDepartments();
   const { toast } = useToast();
+
+  // Fetch all defects
+  useEffect(() => {
+    const fetchDefects = async () => {
+      setLoadingDefects(true);
+      try {
+        // Get all inspection answers that are defects
+        const { data: answersData, error: answersError } = await supabase
+          .from("inspection_answers")
+          .select(`
+            id,
+            inspection_id,
+            question_text,
+            notes,
+            created_at
+          `)
+          .eq("is_defect", true);
+
+        if (answersError) throw answersError;
+
+        // Map defects to their inspections
+        const defectItems: DefectItem[] = [];
+        
+        for (const answer of answersData || []) {
+          const inspection = inspections.find(i => i.id === answer.inspection_id);
+          if (inspection) {
+            defectItems.push({
+              id: answer.id,
+              inspection_id: answer.inspection_id,
+              inspection_title: inspection.title,
+              question_text: answer.question_text,
+              notes: answer.notes,
+              created_at: inspection.created_at,
+              department_id: inspection.department_id,
+              inspector_name: inspection.creator_name || "Unknown",
+            });
+          }
+        }
+
+        setDefects(defectItems);
+      } catch (error) {
+        console.error("Error fetching defects:", error);
+      } finally {
+        setLoadingDefects(false);
+      }
+    };
+
+    if (!loading && inspections.length > 0) {
+      fetchDefects();
+    } else if (!loading) {
+      setLoadingDefects(false);
+    }
+  }, [inspections, loading]);
 
   const getDateRange = (): { start: Date | null; end: Date | null } => {
     const now = new Date();
@@ -160,6 +229,31 @@ export default function InspectionReport() {
     const totalDefects = filteredInspections.reduce((acc, i) => acc + (i.defect_count || 0), 0);
     
     return { total: filteredInspections.length, completed: completed.length, avgScore, excellent, poor, totalDefects };
+  }, [filteredInspections]);
+
+  // Filtered defects based on date/department filters
+  const filteredDefects = useMemo(() => {
+    const { start, end } = getDateRange();
+    
+    return defects.filter((defect) => {
+      // Date filter
+      const itemDate = new Date(defect.created_at);
+      const afterStart = !start || isAfter(itemDate, start) || itemDate.getTime() === start.getTime();
+      const beforeEnd = !end || isBefore(itemDate, end) || itemDate.getTime() === end.getTime();
+      if (!afterStart || !beforeEnd) return false;
+
+      // Department filter
+      if (selectedDepartmentId !== "all" && defect.department_id !== selectedDepartmentId) return false;
+
+      return true;
+    });
+  }, [defects, selectedDateRange, customStartDate, customEndDate, selectedDepartmentId]);
+
+  // Critical status inspections (score < 70%)
+  const criticalInspections = useMemo(() => {
+    return filteredInspections
+      .filter((i) => i.status === "completed" && (i.percentage || 0) < 70)
+      .sort((a, b) => (a.percentage || 0) - (b.percentage || 0));
   }, [filteredInspections]);
 
   const getDepartmentName = (deptId: string) => {
@@ -266,6 +360,99 @@ export default function InspectionReport() {
         startY += 8;
       });
 
+      // Critical Status Page
+      if (criticalInspections.length > 0) {
+        pdf.addPage();
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Critical Status Inspections (Score < 70%)", margin, 20);
+
+        const critHeaders = ["Title", "Department", "Inspector", "Score", "Defects", "Date"];
+        const critColWidths = [60, 50, 50, 25, 25, 40];
+        startX = margin;
+        startY = 30;
+
+        pdf.setFillColor(255, 220, 220);
+        pdf.rect(margin, startY - 5, pageWidth - margin * 2, 10, "F");
+        
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        critHeaders.forEach((header, i) => {
+          pdf.text(header, startX, startY);
+          startX += critColWidths[i];
+        });
+
+        pdf.setFont("helvetica", "normal");
+        startY += 10;
+
+        criticalInspections.forEach((insp) => {
+          if (startY > 180) {
+            pdf.addPage();
+            startY = 20;
+          }
+          startX = margin;
+          const row = [
+            insp.title.length > 30 ? insp.title.substring(0, 27) + "..." : insp.title,
+            getDepartmentName(insp.department_id).length > 25 ? getDepartmentName(insp.department_id).substring(0, 22) + "..." : getDepartmentName(insp.department_id),
+            (insp.creator_name || "Unknown").length > 25 ? (insp.creator_name || "").substring(0, 22) + "..." : (insp.creator_name || "Unknown"),
+            insp.percentage !== null ? `${Math.round(insp.percentage)}%` : "N/A",
+            String(insp.defect_count || 0),
+            format(new Date(insp.created_at), "MMM d, yyyy"),
+          ];
+          row.forEach((cell, i) => {
+            pdf.text(cell, startX, startY);
+            startX += critColWidths[i];
+          });
+          startY += 8;
+        });
+      }
+
+      // Defect List Page
+      if (filteredDefects.length > 0) {
+        pdf.addPage();
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Defect List", margin, 20);
+
+        const defHeaders = ["Defect Description", "Inspection", "Department", "Inspector", "Date"];
+        const defColWidths = [70, 50, 45, 45, 40];
+        startX = margin;
+        startY = 30;
+
+        pdf.setFillColor(255, 243, 205);
+        pdf.rect(margin, startY - 5, pageWidth - margin * 2, 10, "F");
+        
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        defHeaders.forEach((header, i) => {
+          pdf.text(header, startX, startY);
+          startX += defColWidths[i];
+        });
+
+        pdf.setFont("helvetica", "normal");
+        startY += 10;
+
+        filteredDefects.forEach((defect) => {
+          if (startY > 180) {
+            pdf.addPage();
+            startY = 20;
+          }
+          startX = margin;
+          const row = [
+            defect.question_text.length > 35 ? defect.question_text.substring(0, 32) + "..." : defect.question_text,
+            defect.inspection_title.length > 25 ? defect.inspection_title.substring(0, 22) + "..." : defect.inspection_title,
+            getDepartmentName(defect.department_id).length > 22 ? getDepartmentName(defect.department_id).substring(0, 19) + "..." : getDepartmentName(defect.department_id),
+            defect.inspector_name.length > 22 ? defect.inspector_name.substring(0, 19) + "..." : defect.inspector_name,
+            format(new Date(defect.created_at), "MMM d, yyyy"),
+          ];
+          row.forEach((cell, i) => {
+            pdf.text(cell, startX, startY);
+            startX += defColWidths[i];
+          });
+          startY += 8;
+        });
+      }
+
       pdf.save(`inspection-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
       toast({ title: "Export Complete", description: "PDF report downloaded successfully" });
     } catch (error) {
@@ -344,6 +531,34 @@ export default function InspectionReport() {
       if (deptBreakdown.length > 0) {
         const deptSheet = XLSX.utils.json_to_sheet(deptBreakdown);
         XLSX.utils.book_append_sheet(workbook, deptSheet, "By Department");
+      }
+
+      // Critical Status sheet
+      const criticalData = criticalInspections.map((i) => ({
+        Title: i.title,
+        Department: getDepartmentName(i.department_id),
+        Inspector: i.creator_name || "Unknown",
+        "Score (%)": i.percentage !== null ? Math.round(i.percentage) : "N/A",
+        "Defects Found": i.defect_count || 0,
+        Date: format(new Date(i.created_at), "yyyy-MM-dd"),
+      }));
+      if (criticalData.length > 0) {
+        const criticalSheet = XLSX.utils.json_to_sheet(criticalData);
+        XLSX.utils.book_append_sheet(workbook, criticalSheet, "Critical Status");
+      }
+
+      // Defects sheet
+      const defectsData = filteredDefects.map((d) => ({
+        "Defect Description": d.question_text,
+        Inspection: d.inspection_title,
+        Department: getDepartmentName(d.department_id),
+        Inspector: d.inspector_name,
+        Notes: d.notes || "",
+        Date: format(new Date(d.created_at), "yyyy-MM-dd"),
+      }));
+      if (defectsData.length > 0) {
+        const defectsSheet = XLSX.utils.json_to_sheet(defectsData);
+        XLSX.utils.book_append_sheet(workbook, defectsSheet, "Defect List");
       }
 
       XLSX.writeFile(workbook, `inspection-report-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
@@ -610,6 +825,128 @@ export default function InspectionReport() {
               </TableBody>
             </Table>
           </div>
+        </div>
+
+        {/* Critical Status Inspections */}
+        <div className="stat-card overflow-hidden">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertCircle className="w-5 h-5 text-destructive" />
+            <h3 className="font-semibold">Critical Status Inspections</h3>
+            <span className="text-sm text-muted-foreground">(Score below 70%)</span>
+            <Badge variant="destructive" className="ml-auto">
+              {criticalInspections.length} records
+            </Badge>
+          </div>
+          
+          <div className="border border-border rounded-lg overflow-auto max-h-[400px]">
+            <Table>
+              <TableHeader className="sticky top-0 bg-background">
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Inspector</TableHead>
+                  <TableHead>Score</TableHead>
+                  <TableHead>Defects</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {criticalInspections.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      No critical status inspections found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  criticalInspections.map((insp) => (
+                    <TableRow key={insp.id} className="bg-destructive/5">
+                      <TableCell className="font-medium max-w-[200px] truncate">{insp.title}</TableCell>
+                      <TableCell>{getDepartmentName(insp.department_id)}</TableCell>
+                      <TableCell className="text-muted-foreground">{insp.creator_name || "Unknown"}</TableCell>
+                      <TableCell>
+                        <span className="font-bold text-destructive">
+                          {insp.percentage !== null ? `${Math.round(insp.percentage)}%` : "N/A"}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {(insp.defect_count || 0) > 0 ? (
+                          <Badge variant="destructive">{insp.defect_count}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {format(new Date(insp.created_at), "MMM d, yyyy")}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        {/* Defect List */}
+        <div className="stat-card overflow-hidden">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="w-5 h-5 text-warning" />
+            <h3 className="font-semibold">Defect List</h3>
+            <Badge variant="outline" className="ml-auto border-warning text-warning">
+              {filteredDefects.length} defects
+            </Badge>
+          </div>
+          
+          {loadingDefects ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="border border-border rounded-lg overflow-auto max-h-[400px]">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background">
+                  <TableRow>
+                    <TableHead>Defect Description</TableHead>
+                    <TableHead>Inspection</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Inspector</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredDefects.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                        No defects found in the selected period
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredDefects.map((defect) => (
+                      <TableRow key={defect.id} className="bg-warning/5">
+                        <TableCell className="font-medium max-w-[250px]">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
+                            <span className="truncate">{defect.question_text}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[150px] truncate text-muted-foreground">
+                          {defect.inspection_title}
+                        </TableCell>
+                        <TableCell>{getDepartmentName(defect.department_id)}</TableCell>
+                        <TableCell className="text-muted-foreground">{defect.inspector_name}</TableCell>
+                        <TableCell className="max-w-[150px] truncate text-muted-foreground">
+                          {defect.notes || "—"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {format(new Date(defect.created_at), "MMM d, yyyy")}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>
