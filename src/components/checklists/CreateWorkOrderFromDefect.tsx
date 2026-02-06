@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { X, AlertTriangle, Wrench, MapPin, Calendar, User } from "lucide-react";
+import { useState, useEffect } from "react";
+import { AlertTriangle, Wrench, MapPin, Calendar, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +18,12 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
+interface Department {
+  id: string;
+  name: string;
+  displayName?: string;
+}
+
 interface CreateWorkOrderFromDefectProps {
   open: boolean;
   onClose: () => void;
@@ -28,6 +34,8 @@ interface CreateWorkOrderFromDefectProps {
     checklistTitle: string;
   };
   onSave: (workOrder: any) => void;
+  departments?: Department[];
+  defaultDepartmentId?: string;
 }
 
 const priorities = [
@@ -37,31 +45,32 @@ const priorities = [
   { value: "critical", label: "Critical", color: "text-destructive" },
 ];
 
-const assignees = [
-  "John Smith",
-  "Sarah Wilson",
-  "Mike Johnson",
-  "Tom Brown",
-  "Lisa Davis",
-];
-
 export function CreateWorkOrderFromDefect({
   open,
   onClose,
   onCancel,
   defect,
   onSave,
+  departments = [],
+  defaultDepartmentId,
 }: CreateWorkOrderFromDefectProps) {
-  const [title, setTitle] = useState(defect?.questionText ? `Fix: ${defect.questionText}` : "");
-  const [description, setDescription] = useState(
-    defect
-      ? `Defect identified during inspection:\n\nChecklist: ${defect.checklistTitle}\nSection: ${defect.sectionTitle}\nIssue: ${defect.questionText}`
-      : ""
-  );
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [priority, setPriority] = useState("medium");
-  const [assignedTo, setAssignedTo] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+
+  // Reset form when modal opens with new defect
+  useEffect(() => {
+    if (open && defect) {
+      setTitle(`Fix: ${defect.questionText}`);
+      setDescription(
+        `Defect identified during inspection:\n\nChecklist: ${defect.checklistTitle}\nSection: ${defect.sectionTitle}\nIssue: ${defect.questionText}`
+      );
+      setSelectedDepartment(defaultDepartmentId || "");
+    }
+  }, [open, defect, defaultDepartmentId]);
 
   const handleCancel = () => {
     onCancel?.();
@@ -87,20 +96,31 @@ export function CreateWorkOrderFromDefect({
       location,
       priority,
       status: "open",
-      assignedTo: assignedTo || undefined,
       dueDate: dueDate || "Not set",
       createdAt: new Date().toISOString(),
       linkedDefect: defect,
+      departmentId: selectedDepartment || undefined,
     };
 
     onSave(workOrder);
     toast.success("Work order created from defect!");
+    
+    // Reset form
+    setTitle("");
+    setDescription("");
+    setLocation("");
+    setPriority("medium");
+    setDueDate("");
+    setSelectedDepartment("");
+    
     onClose();
   };
 
+  const showDepartmentSelector = departments.length > 0;
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
@@ -141,6 +161,27 @@ export function CreateWorkOrderFromDefect({
             />
           </div>
 
+          {showDepartmentSelector && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-muted-foreground" />
+                Assign to Department
+              </label>
+              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select department (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.displayName || dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium flex items-center gap-2">
@@ -174,37 +215,16 @@ export function CreateWorkOrderFromDefect({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <User className="w-4 h-4 text-muted-foreground" />
-                Assign To
-              </label>
-              <Select value={assignedTo} onValueChange={setAssignedTo}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select assignee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {assignees.map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
-                Due Date
-              </label>
-              <Input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+              Due Date
+            </label>
+            <Input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
           </div>
         </div>
 
