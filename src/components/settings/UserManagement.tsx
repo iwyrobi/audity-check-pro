@@ -54,7 +54,7 @@ export function UserManagement() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithProfile | null>(null);
-  const [formData, setFormData] = useState({ department_id: "", role: "" });
+  const [formData, setFormData] = useState({ department_id: "", role: "", newPassword: "" });
   const [createFormData, setCreateFormData] = useState({
     email: "",
     password: "",
@@ -63,6 +63,7 @@ export function UserManagement() {
     role: "user",
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const fetchUsers = async () => {
@@ -122,7 +123,7 @@ export function UserManagement() {
     }
   }, [isSuperAdmin]);
 
-  const handleOpenEdit = (user: UserWithProfile) => {
+  const handleOpenEdit = async (user: UserWithProfile) => {
     setEditingUser(user);
     const primaryRole = user.roles.includes("super_admin") 
       ? "super_admin" 
@@ -134,8 +135,22 @@ export function UserManagement() {
     setFormData({
       department_id: user.department_id || "",
       role: primaryRole,
+      newPassword: "",
     });
+    setShowEditPassword(false);
     setIsEditModalOpen(true);
+
+    // Fetch email for the user
+    try {
+      const response = await supabase.functions.invoke("get-user-email", {
+        body: { user_id: user.id },
+      });
+      if (response.data?.email) {
+        setEditingUser((prev) => prev ? { ...prev, email: response.data.email } : null);
+      }
+    } catch (error) {
+      console.error("Failed to fetch user email:", error);
+    }
   };
 
   const handleOpenCreate = async () => {
@@ -190,6 +205,24 @@ export function UserManagement() {
         });
 
       if (insertError) throw insertError;
+
+      // Update password if provided
+      if (formData.newPassword && formData.newPassword.length >= 6) {
+        const response = await supabase.functions.invoke("update-user-password", {
+          body: {
+            user_id: editingUser.id,
+            new_password: formData.newPassword,
+          },
+        });
+
+        if (response.error) {
+          throw new Error(response.error.message || "Failed to update password");
+        }
+
+        if (response.data?.error) {
+          throw new Error(response.data.error);
+        }
+      }
 
       toast({ title: "User updated successfully" });
       await fetchUsers();
@@ -391,6 +424,10 @@ export function UserManagement() {
               <Input value={editingUser?.full_name || "—"} disabled />
             </div>
             <div>
+              <Label className="mb-1.5 block">Username (Email)</Label>
+              <Input value={editingUser?.email || "—"} disabled className="text-muted-foreground" />
+            </div>
+            <div>
               <Label className="mb-1.5 block">Department</Label>
               <Select
                 value={formData.department_id || "none"}
@@ -425,6 +462,28 @@ export function UserManagement() {
                   <SelectItem value="super_admin">Super Admin</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label className="mb-1.5 block">New Password (optional)</Label>
+              <div className="relative">
+                <Input
+                  type={showEditPassword ? "text" : "password"}
+                  value={formData.newPassword}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, newPassword: e.target.value }))}
+                  placeholder="Leave blank to keep current password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword(!showEditPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {formData.newPassword && formData.newPassword.length > 0 && formData.newPassword.length < 6 && (
+                <p className="text-xs text-destructive mt-1">Password must be at least 6 characters</p>
+              )}
             </div>
           </div>
           <DialogFooter>
