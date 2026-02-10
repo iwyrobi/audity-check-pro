@@ -5,7 +5,7 @@ import { CreateWorkOrderModal } from "@/components/workorders/CreateWorkOrderMod
 import { WorkOrderDetailModal } from "@/components/workorders/WorkOrderDetailModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Loader2, LayoutGrid, List, User, Calendar } from "lucide-react";
+import { Plus, Search, Loader2, LayoutGrid, List, User, Calendar, ArrowUpDown } from "lucide-react";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,14 +36,28 @@ const dateFilters = [
   { value: "all", label: "All Time" },
 ];
 
+const sortOptions = [
+  { value: "date-desc", label: "Newest First" },
+  { value: "date-asc", label: "Oldest First" },
+  { value: "status", label: "By Status" },
+];
+
+const statusOrder: Record<string, number> = {
+  "open": 0,
+  "in-progress": 1,
+  "pending": 2,
+  "completed": 3,
+};
+
 type ViewMode = "grid" | "list";
 
 export default function WorkOrders() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("Open");
   const [selectedPriority, setSelectedPriority] = useState("All Priorities");
-  const [selectedDateRange, setSelectedDateRange] = useState("today");
+  const [selectedDateRange, setSelectedDateRange] = useState("this-month");
+  const [sortBy, setSortBy] = useState("date-desc");
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -99,6 +113,16 @@ export default function WorkOrders() {
       (!end || isBefore(woDate, end) || woDate.getTime() === end.getTime());
     
     return matchesSearch && matchesStatus && matchesPriority && matchesMyWorkOrders && matchesDateRange;
+  }).sort((a, b) => {
+    switch (sortBy) {
+      case "date-asc":
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case "status":
+        return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+      case "date-desc":
+      default:
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }
   });
 
   const myWorkOrdersCount = workOrders.filter(wo => wo.created_by === user?.id).length;
@@ -320,30 +344,45 @@ export default function WorkOrders() {
             </button>
           </div>
           
-          {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === "grid"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              title="Grid view"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === "list"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              title="List view"
-            >
-              <List className="w-4 h-4" />
-            </button>
+          {/* Sort & View Toggle */}
+          <div className="flex items-center gap-2">
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[150px] bg-secondary border-0">
+                <ArrowUpDown className="w-4 h-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded-md transition-colors ${
+                  viewMode === "grid"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Grid view"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 rounded-md transition-colors ${
+                  viewMode === "list"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="List view"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
