@@ -100,6 +100,7 @@ export default function InspectionReport() {
   const [exporting, setExporting] = useState(false);
   const [defects, setDefects] = useState<DefectItem[]>([]);
   const [loadingDefects, setLoadingDefects] = useState(true);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
 
   const { inspections, loading } = useInspections();
   const { hierarchicalDepartments } = useDepartments();
@@ -255,6 +256,28 @@ export default function InspectionReport() {
       .filter((i) => i.status === "completed" && (i.percentage || 0) < 70)
       .sort((a, b) => (a.percentage || 0) - (b.percentage || 0));
   }, [filteredInspections]);
+
+  // Excellent inspections (score >= 90%)
+  const excellentInspections = useMemo(() => {
+    return filteredInspections
+      .filter((i) => i.status === "completed" && (i.percentage || 0) >= 90)
+      .sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
+  }, [filteredInspections]);
+
+  // Completed inspections
+  const completedInspections = useMemo(() => {
+    return filteredInspections
+      .filter((i) => i.status === "completed")
+      .sort((a, b) => new Date(b.completed_at || b.created_at).getTime() - new Date(a.completed_at || a.created_at).getTime());
+  }, [filteredInspections]);
+
+  const handleStatClick = (section: string) => {
+    setActiveSection(prev => prev === section ? null : section);
+    setTimeout(() => {
+      const el = document.getElementById(`section-${section}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
 
   const getDepartmentName = (deptId: string) => {
     const dept = hierarchicalDepartments.find((d) => d.id === deptId);
@@ -724,11 +747,11 @@ export default function InspectionReport() {
 
         {/* Summary Stats */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-          <div className="stat-card">
+          <div className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all" onClick={() => handleStatClick("all")}>
             <p className="text-sm text-muted-foreground">Total</p>
             <p className="text-2xl font-bold">{stats.total}</p>
           </div>
-          <div className="stat-card">
+          <div className={cn("stat-card cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all", activeSection === "completed" && "ring-2 ring-primary")} onClick={() => handleStatClick("completed")}>
             <p className="text-sm text-muted-foreground">Completed</p>
             <p className="text-2xl font-bold text-success">{stats.completed}</p>
           </div>
@@ -736,19 +759,192 @@ export default function InspectionReport() {
             <p className="text-sm text-muted-foreground">Avg Score</p>
             <p className="text-2xl font-bold">{stats.avgScore}%</p>
           </div>
-          <div className="stat-card">
+          <div className={cn("stat-card cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all", activeSection === "excellent" && "ring-2 ring-primary")} onClick={() => handleStatClick("excellent")}>
             <p className="text-sm text-muted-foreground">Excellent</p>
             <p className="text-2xl font-bold text-primary">{stats.excellent}</p>
           </div>
-          <div className="stat-card">
+          <div className={cn("stat-card cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all", activeSection === "poor" && "ring-2 ring-destructive")} onClick={() => handleStatClick("poor")}>
             <p className="text-sm text-muted-foreground">Poor</p>
             <p className="text-2xl font-bold text-destructive">{stats.poor}</p>
           </div>
-          <div className="stat-card">
+          <div className={cn("stat-card cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all", activeSection === "defects" && "ring-2 ring-warning")} onClick={() => handleStatClick("defects")}>
             <p className="text-sm text-muted-foreground">Defects</p>
             <p className="text-2xl font-bold text-warning">{stats.totalDefects}</p>
           </div>
         </div>
+
+        {/* Completed Inspections - shown when clicked */}
+        {activeSection === "completed" && (
+          <div id="section-completed" className="stat-card overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2 mb-4">
+              <ClipboardCheck className="w-5 h-5 text-success" />
+              <h3 className="font-semibold">Completed Inspections</h3>
+              <Badge variant="default" className="ml-auto">{completedInspections.length} records</Badge>
+            </div>
+            <div className="border border-border rounded-lg overflow-auto max-h-[400px]">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background">
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Template</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Inspector</TableHead>
+                    <TableHead>Score</TableHead>
+                    <TableHead>Defects</TableHead>
+                    <TableHead>Completed</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {completedInspections.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No completed inspections</TableCell></TableRow>
+                  ) : completedInspections.map((insp) => (
+                    <TableRow key={insp.id} className="bg-success/5">
+                      <TableCell className="font-medium max-w-[200px] truncate">{insp.title}</TableCell>
+                      <TableCell className="text-muted-foreground max-w-[150px] truncate">{insp.template_name || "N/A"}</TableCell>
+                      <TableCell>{getDepartmentName(insp.department_id)}</TableCell>
+                      <TableCell className="text-muted-foreground">{insp.creator_name || "Unknown"}</TableCell>
+                      <TableCell>
+                        <span className={cn("font-medium", (insp.percentage || 0) >= 90 ? "text-success" : (insp.percentage || 0) >= 70 ? "text-warning" : "text-destructive")}>
+                          {insp.percentage !== null ? `${Math.round(insp.percentage)}%` : "N/A"}
+                        </span>
+                      </TableCell>
+                      <TableCell>{(insp.defect_count || 0) > 0 ? <Badge variant="destructive">{insp.defect_count}</Badge> : <span className="text-muted-foreground">0</span>}</TableCell>
+                      <TableCell className="text-muted-foreground">{insp.completed_at ? format(new Date(insp.completed_at), "MMM d, yyyy") : "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+
+        {/* Excellent Inspections - shown when clicked */}
+        {activeSection === "excellent" && (
+          <div id="section-excellent" className="stat-card overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2 mb-4">
+              <ClipboardCheck className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold">Excellent Inspections</h3>
+              <span className="text-sm text-muted-foreground">(Score 90%+)</span>
+              <Badge variant="default" className="ml-auto">{excellentInspections.length} records</Badge>
+            </div>
+            <div className="border border-border rounded-lg overflow-auto max-h-[400px]">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background">
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Template</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Inspector</TableHead>
+                    <TableHead>Score</TableHead>
+                    <TableHead>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {excellentInspections.length === 0 ? (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No excellent inspections</TableCell></TableRow>
+                  ) : excellentInspections.map((insp) => (
+                    <TableRow key={insp.id} className="bg-primary/5">
+                      <TableCell className="font-medium max-w-[200px] truncate">{insp.title}</TableCell>
+                      <TableCell className="text-muted-foreground max-w-[150px] truncate">{insp.template_name || "N/A"}</TableCell>
+                      <TableCell>{getDepartmentName(insp.department_id)}</TableCell>
+                      <TableCell className="text-muted-foreground">{insp.creator_name || "Unknown"}</TableCell>
+                      <TableCell><span className="font-bold text-success">{insp.percentage !== null ? `${Math.round(insp.percentage)}%` : "N/A"}</span></TableCell>
+                      <TableCell className="text-muted-foreground">{format(new Date(insp.created_at), "MMM d, yyyy")}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+
+        {/* Poor Inspections - shown when clicked */}
+        {activeSection === "poor" && (
+          <div id="section-poor" className="stat-card overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              <h3 className="font-semibold">Poor Inspections</h3>
+              <span className="text-sm text-muted-foreground">(Score below 70%)</span>
+              <Badge variant="destructive" className="ml-auto">{criticalInspections.length} records</Badge>
+            </div>
+            <div className="border border-border rounded-lg overflow-auto max-h-[400px]">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background">
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Inspector</TableHead>
+                    <TableHead>Score</TableHead>
+                    <TableHead>Defects</TableHead>
+                    <TableHead>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {criticalInspections.length === 0 ? (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No poor inspections</TableCell></TableRow>
+                  ) : criticalInspections.map((insp) => (
+                    <TableRow key={insp.id} className="bg-destructive/5">
+                      <TableCell className="font-medium max-w-[200px] truncate">{insp.title}</TableCell>
+                      <TableCell>{getDepartmentName(insp.department_id)}</TableCell>
+                      <TableCell className="text-muted-foreground">{insp.creator_name || "Unknown"}</TableCell>
+                      <TableCell><span className="font-bold text-destructive">{insp.percentage !== null ? `${Math.round(insp.percentage)}%` : "N/A"}</span></TableCell>
+                      <TableCell>{(insp.defect_count || 0) > 0 ? <Badge variant="destructive">{insp.defect_count}</Badge> : <span className="text-muted-foreground">0</span>}</TableCell>
+                      <TableCell className="text-muted-foreground">{format(new Date(insp.created_at), "MMM d, yyyy")}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+
+        {/* Defects - shown when clicked */}
+        {activeSection === "defects" && (
+          <div id="section-defects" className="stat-card overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="w-5 h-5 text-warning" />
+              <h3 className="font-semibold">Defect List</h3>
+              <Badge variant="outline" className="ml-auto border-warning text-warning">{filteredDefects.length} defects</Badge>
+            </div>
+            {loadingDefects ? (
+              <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+            ) : (
+              <div className="border border-border rounded-lg overflow-auto max-h-[400px]">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background">
+                    <TableRow>
+                      <TableHead>Defect Description</TableHead>
+                      <TableHead>Inspection</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Inspector</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredDefects.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No defects found</TableCell></TableRow>
+                    ) : filteredDefects.map((defect) => (
+                      <TableRow key={defect.id} className="bg-warning/5">
+                        <TableCell className="font-medium max-w-[250px]">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
+                            <span className="truncate">{defect.question_text}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[150px] truncate text-muted-foreground">{defect.inspection_title}</TableCell>
+                        <TableCell>{getDepartmentName(defect.department_id)}</TableCell>
+                        <TableCell className="text-muted-foreground">{defect.inspector_name}</TableCell>
+                        <TableCell className="max-w-[150px] truncate text-muted-foreground">{defect.notes || "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{format(new Date(defect.created_at), "MMM d, yyyy")}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Data Table */}
         <div className="stat-card overflow-hidden">
