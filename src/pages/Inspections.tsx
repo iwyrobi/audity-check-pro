@@ -65,7 +65,7 @@ export default function Inspections() {
   const { departments } = useDepartments();
 
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("drafts");
+  const [activeTab, setActiveTab] = useState("completed");
   const [exporting, setExporting] = useState(false);
 
   const getDateRange = (): { start: Date | null; end: Date | null } => {
