@@ -22,10 +22,11 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children, title }: AppLayoutProps) {
-  const { user, profile, department, roles, signOut, isAdmin, isDepartmentHead } = useAuth();
+  const { user, profile, department, roles, signOut, isSuperAdmin, isAdmin, isDepartmentHead } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const getRoleBadge = () => {
+    if (isSuperAdmin) return <Badge variant="destructive">Super Admin</Badge>;
     if (isAdmin) return <Badge variant="destructive">Admin</Badge>;
     if (isDepartmentHead) return <Badge variant="default">Dept Head</Badge>;
     return <Badge variant="secondary">User</Badge>;
