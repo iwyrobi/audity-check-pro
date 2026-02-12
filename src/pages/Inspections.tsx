@@ -55,13 +55,13 @@ const dateFilters = [
 export default function Inspections() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("all");
-  const [selectedDateRange, setSelectedDateRange] = useState("today");
+  const { isAdmin, profile } = useAuth();
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>(profile?.department_id || "all");
+  const [selectedDateRange, setSelectedDateRange] = useState("this-month");
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
   
   const { inspections, loading } = useInspections();
-  const { isAdmin } = useAuth();
   const { departments } = useDepartments();
 
   const { toast } = useToast();
