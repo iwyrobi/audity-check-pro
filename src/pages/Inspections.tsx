@@ -259,7 +259,7 @@ export default function Inspections() {
     const department = departments.find((d) => d.id === inspection.department_id);
     
     return (
-      <div className="action-card">
+      <div className="action-card cursor-pointer" onClick={() => handleView(inspection)}>
         <div className="flex items-start justify-between mb-3">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <FileText className="w-5 h-5 text-primary" />
@@ -309,7 +309,7 @@ export default function Inspections() {
             <Button
               size="sm"
               className="bg-primary text-primary-foreground hover:bg-primary/90 h-8"
-              onClick={() => handleResume(inspection)}
+              onClick={(e) => { e.stopPropagation(); handleResume(inspection); }}
             >
               <Play className="w-3.5 h-3.5 mr-1" />
               Resume
