@@ -230,51 +230,92 @@ export default function WorkOrderReport() {
         pdf.text(text, margin, filterY + 16 + i * 6);
       });
 
-      // Table
+      // Detailed list
       pdf.addPage();
       pdf.setFontSize(14);
       pdf.setFont("helvetica", "bold");
       pdf.text("Work Order Details", margin, 20);
 
-      const headers = ["Title", "Department", "Created By", "Status", "Priority", "Due Date", "Created"];
-      const colWidths = [50, 40, 35, 30, 25, 30, 30];
-      let startX = margin;
       let startY = 30;
+      const contentWidth = pageWidth - margin * 2;
+      const labelX = margin;
+      const valueX = margin + 45;
 
-      pdf.setFillColor(240, 240, 240);
-      pdf.rect(margin, startY - 5, pageWidth - margin * 2, 10, "F");
-      
-      pdf.setFontSize(9);
-      pdf.setFont("helvetica", "bold");
-      headers.forEach((header, i) => {
-        pdf.text(header, startX, startY);
-        startX += colWidths[i];
-      });
+      filteredWorkOrders.forEach((wo, index) => {
+        const isOverdue = wo.status !== "completed" && wo.due_date && new Date(wo.due_date) < new Date();
+        const statusText = wo.status.charAt(0).toUpperCase() + wo.status.slice(1).replace("-", " ");
+        const priorityText = wo.priority.charAt(0).toUpperCase() + wo.priority.slice(1);
 
-      pdf.setFont("helvetica", "normal");
-      startY += 10;
-
-      filteredWorkOrders.forEach((wo) => {
-        if (startY > 180) {
+        // Check if we need a new page (each card ~60mm tall)
+        if (startY > 150) {
           pdf.addPage();
           startY = 20;
         }
-        startX = margin;
-        const isOverdue = wo.status !== "completed" && wo.due_date && new Date(wo.due_date) < new Date();
-        const row = [
-          wo.title.length > 25 ? wo.title.substring(0, 22) + "..." : wo.title,
-          getDepartmentName(wo.department_id).length > 20 ? getDepartmentName(wo.department_id).substring(0, 17) + "..." : getDepartmentName(wo.department_id),
-          (wo.creator_name || "Unknown").length > 18 ? (wo.creator_name || "").substring(0, 15) + "..." : (wo.creator_name || "Unknown"),
-          wo.status.charAt(0).toUpperCase() + wo.status.slice(1).replace("-", " "),
-          wo.priority.charAt(0).toUpperCase() + wo.priority.slice(1),
-          wo.due_date ? format(new Date(wo.due_date), "MMM d, yyyy") + (isOverdue ? " ⚠" : "") : "—",
-          format(new Date(wo.created_at), "MMM d, yyyy"),
-        ];
-        row.forEach((cell, i) => {
-          pdf.text(cell, startX, startY);
-          startX += colWidths[i];
-        });
-        startY += 8;
+
+        // Card background
+        pdf.setFillColor(248, 248, 248);
+        pdf.setDrawColor(220, 220, 220);
+        pdf.roundedRect(margin, startY - 5, contentWidth, 58, 2, 2, "FD");
+
+        // Card header: # and title
+        pdf.setFontSize(11);
+        pdf.setFont("helvetica", "bold");
+        pdf.text(`#${index + 1}  ${wo.title}`, margin + 4, startY + 2);
+
+        // Status & Priority badges on same line
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "normal");
+        const badgeText = `${statusText}  |  ${priorityText}${isOverdue ? "  |  ⚠ OVERDUE" : ""}`;
+        pdf.text(badgeText, margin + 4, startY + 9);
+
+        // Details in two columns
+        pdf.setFontSize(9);
+        const col1X = margin + 4;
+        const col2X = margin + contentWidth / 2;
+        let detailY = startY + 18;
+
+        // Column 1
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Department:", col1X, detailY);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(getDepartmentName(wo.department_id), col1X + 30, detailY);
+
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Created By:", col1X, detailY + 7);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(wo.creator_name || "Unknown", col1X + 30, detailY + 7);
+
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Location:", col1X, detailY + 14);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(wo.location || "—", col1X + 30, detailY + 14);
+
+        // Column 2
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Created:", col2X, detailY);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(format(new Date(wo.created_at), "MMM d, yyyy h:mm a"), col2X + 25, detailY);
+
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Due Date:", col2X, detailY + 7);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(wo.due_date ? format(new Date(wo.due_date), "MMM d, yyyy") : "—", col2X + 25, detailY + 7);
+
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Completed:", col2X, detailY + 14);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(wo.completed_at ? format(new Date(wo.completed_at), "MMM d, yyyy h:mm a") : "—", col2X + 25, detailY + 14);
+
+        // Description row
+        if (wo.description) {
+          pdf.setFont("helvetica", "bold");
+          pdf.text("Description:", col1X, detailY + 23);
+          pdf.setFont("helvetica", "normal");
+          const descText = wo.description.length > 120 ? wo.description.substring(0, 117) + "..." : wo.description;
+          pdf.text(descText, col1X + 30, detailY + 23);
+        }
+
+        startY += 65;
       });
 
       pdf.save(`work-order-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
