@@ -20,13 +20,12 @@ import { Badge } from "@/components/ui/badge";
 export default function RunInspection() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { templateId, templateName, templateData, resumeInspectionId } =
-    (location.state as {
-      templateId?: string;
-      templateName?: string;
-      templateData?: ChecklistTemplateDB;
-      resumeInspectionId?: string;
-    }) || {};
+  const { templateId, templateName, templateData, resumeInspectionId } = (location.state as {
+    templateId?: string;
+    templateName?: string;
+    templateData?: ChecklistTemplateDB;
+    resumeInspectionId?: string;
+  }) || {};
 
   const { createInspection, saveInspectionAnswers, completeInspection } = useInspections();
   const { createWorkOrder } = useWorkOrders();
@@ -56,19 +55,17 @@ export default function RunInspection() {
       try {
         // First check if we have offline data for this inspection
         const offlineData = getOfflineInspection(resumeInspectionId);
-
+        
         // Fetch the template with sections and questions
         const { data: templateResult, error: templateError } = await supabase
           .from("checklist_templates")
-          .select(
-            `
+          .select(`
             *,
             sections:template_sections(
               *,
               questions:template_questions(*)
             )
-          `,
-          )
+          `)
           .eq("id", templateId)
           .maybeSingle();
 
@@ -80,7 +77,9 @@ export default function RunInspection() {
             .sort((a: any, b: any) => a.sort_order - b.sort_order)
             .map((section: any) => ({
               ...section,
-              questions: (section.questions || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+              questions: (section.questions || []).sort(
+                (a: any, b: any) => a.sort_order - b.sort_order
+              ),
             }));
 
           // Convert to TemplateSection format
@@ -107,12 +106,9 @@ export default function RunInspection() {
           offlineData.answers.forEach((a) => {
             loadedAnswers[a.questionId] = {
               questionId: a.questionId,
-              value:
-                a.answer === "yes" || a.answer === "no" || a.answer === "na"
-                  ? a.answer
-                  : isNaN(Number(a.answer))
-                    ? a.answer
-                    : Number(a.answer),
+              value: a.answer === "yes" || a.answer === "no" || a.answer === "na" 
+                ? a.answer 
+                : isNaN(Number(a.answer)) ? a.answer : Number(a.answer),
               score: a.scoreEarned,
               maxScore: a.maxScore,
               isDefect: a.isDefect,
@@ -135,12 +131,9 @@ export default function RunInspection() {
             if (a.question_id) {
               loadedAnswers[a.question_id] = {
                 questionId: a.question_id,
-                value:
-                  a.answer === "yes" || a.answer === "no" || a.answer === "na"
-                    ? a.answer
-                    : isNaN(Number(a.answer))
-                      ? a.answer
-                      : Number(a.answer),
+                value: a.answer === "yes" || a.answer === "no" || a.answer === "na" 
+                  ? a.answer 
+                  : isNaN(Number(a.answer)) ? a.answer : Number(a.answer),
                 score: a.score_earned || 0,
                 maxScore: a.max_score || 0,
                 isDefect: a.is_defect || false,
@@ -150,6 +143,7 @@ export default function RunInspection() {
           });
           setAnswers(loadedAnswers);
         }
+
       } catch (error) {
         console.error("Error loading resume data:", error);
         toast.error("Failed to load inspection data");
@@ -241,7 +235,10 @@ export default function RunInspection() {
   const totalQuestions = sections.reduce((acc, s) => acc + s.questions.length, 0);
   const answeredQuestions = Object.keys(answers).length;
   const totalScore = Object.values(answers).reduce((acc, a) => acc + (a.score || 0), 0);
-  const maxScore = sections.reduce((acc, s) => acc + s.questions.reduce((qacc, q) => qacc + q.score, 0), 0);
+  const maxScore = sections.reduce(
+    (acc, s) => acc + s.questions.reduce((qacc, q) => qacc + q.score, 0),
+    0
+  );
   const defectCount = Object.values(answers).filter((a) => a.isDefect).length;
   const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
 
@@ -254,7 +251,9 @@ export default function RunInspection() {
     setSaving(true);
 
     const answerData = Object.entries(answers).map(([questionId, answer]) => {
-      const question = sections.flatMap((s) => s.questions).find((q) => q.id === questionId);
+      const question = sections
+        .flatMap((s) => s.questions)
+        .find((q) => q.id === questionId);
 
       return {
         questionId,
@@ -283,7 +282,7 @@ export default function RunInspection() {
       });
       toast.success("Draft saved offline - will sync when online");
     }
-
+    
     setSaving(false);
   };
 
@@ -297,7 +296,9 @@ export default function RunInspection() {
 
     if (inspectionId) {
       const answerData = Object.entries(answers).map(([questionId, answer]) => {
-        const question = sections.flatMap((s) => s.questions).find((q) => q.id === questionId);
+        const question = sections
+          .flatMap((s) => s.questions)
+          .find((q) => q.id === questionId);
 
         return {
           questionId,
@@ -349,10 +350,10 @@ export default function RunInspection() {
       <AppLayout title="Inspection">
         <div className="flex flex-col items-center justify-center h-64 gap-4">
           <AlertTriangle className="w-12 h-12 text-warning" />
-          <p className="text-muted-foreground">
-            No template data found. Please start a new inspection from the checklists page.
-          </p>
-          <Button onClick={() => navigate("/checklists")}>Go to Checklists</Button>
+          <p className="text-muted-foreground">No template data found. Please start a new inspection from the checklists page.</p>
+          <Button onClick={() => navigate("/checklists")}>
+            Go to Checklists
+          </Button>
         </div>
       </AppLayout>
     );
@@ -369,9 +370,7 @@ export default function RunInspection() {
               <p className="font-medium text-sm">You're offline</p>
               <p className="text-xs opacity-80">Changes will be saved locally and synced when you're back online</p>
             </div>
-            <Badge variant="outline" className="border-warning text-warning">
-              Offline Mode
-            </Badge>
+            <Badge variant="outline" className="border-warning text-warning">Offline Mode</Badge>
           </div>
         )}
 
@@ -381,6 +380,24 @@ export default function RunInspection() {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Checklists
           </Button>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" disabled={saving} onClick={handleSaveDraft}>
+              <Save className="w-4 h-4 mr-2" />
+              Save Draft
+            </Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={handleSubmit}
+              disabled={saving}
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              Submit Inspection
+            </Button>
+          </div>
         </div>
 
         {/* Progress Summary */}
@@ -402,7 +419,11 @@ export default function RunInspection() {
             <p
               className={cn(
                 "text-2xl font-bold",
-                percentage >= 80 ? "text-success" : percentage >= 60 ? "text-warning" : "text-destructive",
+                percentage >= 80
+                  ? "text-success"
+                  : percentage >= 60
+                  ? "text-warning"
+                  : "text-destructive"
               )}
             >
               {percentage}%
@@ -427,7 +448,9 @@ export default function RunInspection() {
             <span
               className={cn(
                 "status-badge mt-2",
-                answeredQuestions === totalQuestions ? "status-badge-success" : "status-badge-warning",
+                answeredQuestions === totalQuestions
+                  ? "status-badge-success"
+                  : "status-badge-warning"
               )}
             >
               {answeredQuestions === totalQuestions ? "Ready to Submit" : "In Progress"}
@@ -462,20 +485,6 @@ export default function RunInspection() {
           departments={hierarchicalDepartments}
           defaultDepartmentId={profile?.department_id || undefined}
         />
-      </div>
-      <div className="flex items-center gap-3">
-        <Button variant="outline" disabled={saving} onClick={handleSaveDraft}>
-          <Save className="w-4 h-4 mr-2" />
-          Save Draft
-        </Button>
-        <Button
-          className="bg-accent text-accent-foreground hover:bg-accent/90"
-          onClick={handleSubmit}
-          disabled={saving}
-        >
-          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-          Submit Inspection
-        </Button>
       </div>
     </AppLayout>
   );
