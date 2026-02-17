@@ -1,7 +1,8 @@
 import { ReactNode, useState } from "react";
 import { AppSidebar } from "./AppSidebar";
 import { OfflineIndicator } from "./OfflineIndicator";
-import { Search, User, LogOut, Menu, X } from "lucide-react";
+import { Search, User, LogOut, Menu } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -72,8 +73,8 @@ export function AppLayout({ children, title }: AppLayoutProps) {
             )}
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
-            {/* Offline Indicator */}
             <OfflineIndicator />
+            <NotificationBell />
             
             <div className="relative hidden sm:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
