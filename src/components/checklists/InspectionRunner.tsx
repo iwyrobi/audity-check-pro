@@ -45,24 +45,18 @@ export function InspectionRunner({
   inspectionId,
 }: InspectionRunnerProps) {
   const [expandedSections, setExpandedSections] = useState<string[]>(
-    sections.filter((s) => !s.defaultCollapsed).map((s) => s.id)
+    sections.filter((s) => !s.defaultCollapsed).map((s) => s.id),
   );
   const [showNotes, setShowNotes] = useState<Record<string, boolean>>({});
   const [showPhotos, setShowPhotos] = useState<Record<string, boolean>>({});
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections((prev) =>
-      prev.includes(sectionId)
-        ? prev.filter((id) => id !== sectionId)
-        : [...prev, sectionId]
+      prev.includes(sectionId) ? prev.filter((id) => id !== sectionId) : [...prev, sectionId],
     );
   };
 
-  const handleYesNoAnswer = (
-    question: QuestionItem,
-    value: "yes" | "no" | "na",
-    section?: TemplateSection
-  ) => {
+  const handleYesNoAnswer = (question: QuestionItem, value: "yes" | "no" | "na", section?: TemplateSection) => {
     const isDefect = value === "no";
     const score = value === "yes" ? question.score : 0;
     onAnswer(question.id, {
@@ -113,10 +107,7 @@ export function InspectionRunner({
         const defectCount = getSectionDefects(section);
 
         return (
-          <div
-            key={section.id}
-            className="border border-border rounded-xl overflow-hidden bg-card"
-          >
+          <div key={section.id} className="border border-border rounded-xl overflow-hidden bg-card">
             {/* Section Header */}
             <button
               onClick={() => toggleSection(section.id)}
@@ -138,8 +129,8 @@ export function InspectionRunner({
                       sectionScore.percentage >= 80
                         ? "text-success"
                         : sectionScore.percentage >= 60
-                        ? "text-warning"
-                        : "text-destructive"
+                          ? "text-warning"
+                          : "text-destructive",
                     )}
                   >
                     {sectionScore.percentage}%
@@ -164,24 +155,14 @@ export function InspectionRunner({
                   const isDefect = answer?.isDefect;
 
                   return (
-                    <div
-                      key={question.id}
-                      className={cn(
-                        "p-4 transition-colors",
-                        isDefect && "bg-destructive/5"
-                      )}
-                    >
+                    <div key={question.id} className={cn("p-4 transition-colors", isDefect && "bg-destructive/5")}>
                       <div className="flex items-start gap-4">
                         {/* Question Number & Text */}
                         <div className="flex-1">
                           <div className="flex items-start gap-2">
-                            <span className="text-sm font-medium text-muted-foreground">
-                              {qIndex + 1}.
-                            </span>
+                            <span className="text-sm font-medium text-muted-foreground">{qIndex + 1}.</span>
                             <div className="flex-1">
-                              <p className="font-medium text-foreground">
-                                {question.text || "Untitled Question"}
-                              </p>
+                              <p className="font-medium text-foreground">{question.text || "Untitled Question"}</p>
                               <p className="text-xs text-muted-foreground mt-1">
                                 {question.score} pts · {question.required ? "Required" : "Optional"}
                               </p>
@@ -199,7 +180,7 @@ export function InspectionRunner({
                                   "p-2 rounded-lg border transition-all",
                                   answer?.value === "yes"
                                     ? "bg-success/10 border-success text-success"
-                                    : "border-border hover:bg-secondary"
+                                    : "border-border hover:bg-secondary",
                                 )}
                               >
                                 <CheckCircle2 className="w-6 h-6" />
@@ -210,7 +191,7 @@ export function InspectionRunner({
                                   "p-2 rounded-lg border transition-all",
                                   answer?.value === "no"
                                     ? "bg-destructive/10 border-destructive text-destructive"
-                                    : "border-border hover:bg-secondary"
+                                    : "border-border hover:bg-secondary",
                                 )}
                               >
                                 <XCircle className="w-6 h-6" />
@@ -221,7 +202,7 @@ export function InspectionRunner({
                                   "p-2 rounded-lg border transition-all",
                                   answer?.value === "na"
                                     ? "bg-muted border-muted-foreground text-muted-foreground"
-                                    : "border-border hover:bg-secondary"
+                                    : "border-border hover:bg-secondary",
                                 )}
                               >
                                 <MinusCircle className="w-6 h-6" />
@@ -237,17 +218,12 @@ export function InspectionRunner({
                                 max={question.score}
                                 value={(answer?.value as number) || ""}
                                 onChange={(e) =>
-                                  handleScoreAnswer(
-                                    question,
-                                    Math.min(parseInt(e.target.value) || 0, question.score)
-                                  )
+                                  handleScoreAnswer(question, Math.min(parseInt(e.target.value) || 0, question.score))
                                 }
                                 className="w-20"
                                 placeholder="0"
                               />
-                              <span className="text-sm text-muted-foreground">
-                                / {question.score}
-                              </span>
+                              <span className="text-sm text-muted-foreground">/ {question.score}</span>
                             </div>
                           )}
 
@@ -277,9 +253,7 @@ export function InspectionRunner({
                                 [question.id]: !prev[question.id],
                               }))
                             }
-                            className={cn(
-                              showNotes[question.id] && "bg-secondary"
-                            )}
+                            className={cn(showNotes[question.id] && "bg-secondary")}
                           >
                             <MessageSquare className="w-4 h-4" />
                           </Button>
@@ -293,9 +267,7 @@ export function InspectionRunner({
                                 [question.id]: !prev[question.id],
                               }))
                             }
-                            className={cn(
-                              showPhotos[question.id] && "bg-secondary"
-                            )}
+                            className={cn(showPhotos[question.id] && "bg-secondary")}
                           >
                             <Camera className="w-4 h-4" />
                           </Button>
@@ -307,9 +279,7 @@ export function InspectionRunner({
                         <div className="mt-3 ml-6">
                           <Textarea
                             value={answer?.notes || ""}
-                            onChange={(e) =>
-                              onAnswer(question.id, { notes: e.target.value })
-                            }
+                            onChange={(e) => onAnswer(question.id, { notes: e.target.value })}
                             placeholder="Add notes or comments..."
                             rows={2}
                             className="text-sm"
@@ -336,9 +306,7 @@ export function InspectionRunner({
                           className="mt-3 ml-6 flex items-center gap-2 text-destructive hover:bg-destructive/10 px-2 py-1 rounded-md transition-colors cursor-pointer"
                         >
                           <AlertTriangle className="w-4 h-4" />
-                          <span className="text-sm font-medium">
-                            Defect identified - Click to create work order
-                          </span>
+                          <span className="text-sm font-medium">Defect identified - Click to create work order</span>
                           <Wrench className="w-4 h-4 ml-1" />
                         </button>
                       )}
