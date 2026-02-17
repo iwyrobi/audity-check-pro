@@ -78,3 +78,13 @@ Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/c
 - Create WO from defect assign to department not working
 - Create / Edit User not assign to department.
 - Finish Wo not accessable from WO Owner.
+
+#17 Feb Bug not yet finish
+
+- On Mobile Phone, Every take photos or upload images, work order refreshed and data inputed to form resseted
+- check list cant open camera, and saved imaes
+
+  #New Feature Request
+  - allow checklist template assigned to department or users.
+  - every departemental inspection done, department head must have notification.
+  - every wo done need dephead or leader incharge review before it 100% done status.
