@@ -31,8 +31,12 @@ import {
   Video,
   BarChart3,
   Shield,
-  ArrowUpRight
+  ArrowUpRight,
+  Bell,
+  BellOff,
+  BellRing
 } from "lucide-react";
+import { requestPushPermission, isPushSupported, getPushPermissionStatus } from "@/lib/pushNotifications";
 
 interface UserStats {
   totalInspections: number;
@@ -69,6 +73,11 @@ export default function Profile() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [pushStatus, setPushStatus] = useState<NotificationPermission | "unsupported">("default");
+
+  useEffect(() => {
+    setPushStatus(getPushPermissionStatus());
+  }, []);
 
   useEffect(() => {
     if (profile?.full_name) {
@@ -493,7 +502,7 @@ export default function Profile() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="profile">
-              <TabsList className="grid w-full grid-cols-2 max-w-md">
+              <TabsList className="grid w-full grid-cols-3 max-w-lg">
                 <TabsTrigger value="profile">
                   <User className="w-4 h-4 mr-2" />
                   Profile
@@ -501,6 +510,10 @@ export default function Profile() {
                 <TabsTrigger value="security">
                   <KeyRound className="w-4 h-4 mr-2" />
                   Security
+                </TabsTrigger>
+                <TabsTrigger value="notifications">
+                  <Bell className="w-4 h-4 mr-2" />
+                  Notifications
                 </TabsTrigger>
               </TabsList>
               
@@ -594,6 +607,80 @@ export default function Profile() {
                       </>
                     )}
                   </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="notifications" className="mt-6">
+                <div className="space-y-4 max-w-md">
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium">Push Notifications</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Get notified about work orders, inspections, and defects even when the app is in the background.
+                    </p>
+                  </div>
+
+                  {!isPushSupported() ? (
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
+                      <BellOff className="w-5 h-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Not Supported</p>
+                        <p className="text-xs text-muted-foreground">
+                          Push notifications are not supported in this browser. Try installing the app first.
+                        </p>
+                      </div>
+                    </div>
+                  ) : pushStatus === "granted" ? (
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <BellRing className="w-5 h-5 text-green-500" />
+                      <div>
+                        <p className="text-sm font-medium">Enabled</p>
+                        <p className="text-xs text-muted-foreground">
+                          You will receive push notifications for important events.
+                        </p>
+                      </div>
+                    </div>
+                  ) : pushStatus === "denied" ? (
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                      <BellOff className="w-5 h-5 text-destructive" />
+                      <div>
+                        <p className="text-sm font-medium">Blocked</p>
+                        <p className="text-xs text-muted-foreground">
+                          Push notifications are blocked. Please enable them in your browser settings.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={async () => {
+                        const granted = await requestPushPermission();
+                        setPushStatus(granted ? "granted" : "denied");
+                        toast({
+                          title: granted ? "Notifications enabled" : "Notifications blocked",
+                          description: granted
+                            ? "You will now receive push notifications."
+                            : "Please enable notifications in your browser settings.",
+                          variant: granted ? "default" : "destructive",
+                        });
+                      }}
+                      className="gap-2"
+                    >
+                      <Bell className="w-4 h-4" />
+                      Enable Push Notifications
+                    </Button>
+                  )}
+
+                  <div className="pt-4 border-t space-y-2">
+                    <h3 className="text-sm font-medium">In-App Notifications</h3>
+                    <p className="text-xs text-muted-foreground">
+                      You'll always receive in-app notifications via the bell icon in the header.
+                      These include:
+                    </p>
+                    <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
+                      <li>Work order assignments and new work orders</li>
+                      <li>Inspection completions in your department</li>
+                      <li>Defect reports from inspections</li>
+                    </ul>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
