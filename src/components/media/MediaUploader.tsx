@@ -132,7 +132,7 @@ export function MediaUploader({
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              multiple
+              capture="environment"
               onChange={handleFileSelect}
               className="hidden"
             />
