@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { InspectionRunner, QuestionAnswer } from "@/components/checklists/InspectionRunner";
@@ -16,6 +16,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { usePersistedState } from "@/hooks/usePersistedState";
+
+const SESSION_KEY_PREFIX = "run_inspection_";
 
 export default function RunInspection() {
   const location = useLocation();
@@ -33,9 +36,43 @@ export default function RunInspection() {
   const { hierarchicalDepartments } = useDepartments();
   const { profile } = useAuth();
 
-  const [inspectionId, setInspectionId] = useState<string | null>(resumeInspectionId || null);
-  const [inspectionTitle, setInspectionTitle] = useState(templateName || "Daily Safety Inspection");
-  const [answers, setAnswers] = useState<Record<string, QuestionAnswer>>({});
+  // Persist navigation state so it survives reloads
+  const [persistedNav, setPersistedNav, clearPersistedNav] = usePersistedState(
+    SESSION_KEY_PREFIX + "nav",
+    { templateId: templateId || "", templateName: templateName || "", resumeInspectionId: resumeInspectionId || "" }
+  );
+
+  // Use fresh navigation state if available, otherwise fall back to persisted
+  const activeTemplateId = templateId || persistedNav.templateId || undefined;
+  const activeTemplateName = templateName || persistedNav.templateName || "Daily Safety Inspection";
+  const activeResumeId = resumeInspectionId || persistedNav.resumeInspectionId || undefined;
+
+  // Persist nav state when we get fresh values
+  useEffect(() => {
+    if (templateId || templateName || resumeInspectionId) {
+      setPersistedNav({
+        templateId: templateId || "",
+        templateName: templateName || "",
+        resumeInspectionId: resumeInspectionId || "",
+      });
+    }
+  }, [templateId, templateName, resumeInspectionId]);
+
+  // Use persisted state for answers and sections
+  const [inspectionId, setInspectionId, clearInspectionId] = usePersistedState<string | null>(
+    SESSION_KEY_PREFIX + "id",
+    activeResumeId || null
+  );
+  const [inspectionTitle] = useState(activeTemplateName);
+  const [answers, setAnswers, clearAnswers] = usePersistedState<Record<string, QuestionAnswer>>(
+    SESSION_KEY_PREFIX + "answers",
+    {}
+  );
+  const [sections, setSections, clearSections] = usePersistedState<TemplateSection[]>(
+    SESSION_KEY_PREFIX + "sections",
+    []
+  );
+
   const [workOrderModal, setWorkOrderModal] = useState<{
     open: boolean;
     question?: QuestionItem;
@@ -43,20 +80,30 @@ export default function RunInspection() {
     questionId?: string;
   }>({ open: false });
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(!!resumeInspectionId);
-  const [sections, setSections] = useState<TemplateSection[]>([]);
+  const [loading, setLoading] = useState(!!activeResumeId && sections.length === 0);
+
+  // Clear all persisted state (called on submit or navigation away)
+  const clearAllPersisted = useCallback(() => {
+    clearPersistedNav();
+    clearInspectionId();
+    clearAnswers();
+    clearSections();
+  }, [clearPersistedNav, clearInspectionId, clearAnswers, clearSections]);
 
   // Load template and answers when resuming an inspection
   useEffect(() => {
     const loadResumeData = async () => {
-      if (!resumeInspectionId || !templateId) return;
+      if (!activeResumeId || !activeTemplateId) return;
+      // Skip if we already have persisted sections (came back from focus loss)
+      if (sections.length > 0) {
+        setLoading(false);
+        return;
+      }
 
       setLoading(true);
       try {
-        // First check if we have offline data for this inspection
-        const offlineData = getOfflineInspection(resumeInspectionId);
-        
-        // Fetch the template with sections and questions
+        const offlineData = getOfflineInspection(activeResumeId);
+
         const { data: templateResult, error: templateError } = await supabase
           .from("checklist_templates")
           .select(`
@@ -66,13 +113,12 @@ export default function RunInspection() {
               questions:template_questions(*)
             )
           `)
-          .eq("id", templateId)
+          .eq("id", activeTemplateId)
           .maybeSingle();
 
         if (templateError) throw templateError;
 
         if (templateResult?.sections) {
-          // Sort sections and questions by sort_order
           const sortedSections = (templateResult.sections || [])
             .sort((a: any, b: any) => a.sort_order - b.sort_order)
             .map((section: any) => ({
@@ -82,7 +128,6 @@ export default function RunInspection() {
               ),
             }));
 
-          // Convert to TemplateSection format
           const convertedSections: TemplateSection[] = sortedSections.map((section: any) => ({
             id: section.id,
             title: section.name,
@@ -100,7 +145,6 @@ export default function RunInspection() {
           setSections(convertedSections);
         }
 
-        // Prioritize offline data if available
         if (offlineData) {
           const loadedAnswers: Record<string, QuestionAnswer> = {};
           offlineData.answers.forEach((a) => {
@@ -118,11 +162,10 @@ export default function RunInspection() {
           setAnswers(loadedAnswers);
           toast.info("Loaded offline saved data");
         } else {
-          // Fetch saved answers from server
           const { data: answersData, error: answersError } = await supabase
             .from("inspection_answers")
             .select("*")
-            .eq("inspection_id", resumeInspectionId);
+            .eq("inspection_id", activeResumeId);
 
           if (answersError) throw answersError;
 
@@ -143,7 +186,6 @@ export default function RunInspection() {
           });
           setAnswers(loadedAnswers);
         }
-
       } catch (error) {
         console.error("Error loading resume data:", error);
         toast.error("Failed to load inspection data");
@@ -153,11 +195,11 @@ export default function RunInspection() {
     };
 
     loadResumeData();
-  }, [resumeInspectionId, templateId, getOfflineInspection]);
+  }, [activeResumeId, activeTemplateId, getOfflineInspection]);
 
   // Convert template data to sections format if passed via navigation (new inspection)
   useEffect(() => {
-    if (templateData?.sections && !resumeInspectionId) {
+    if (templateData?.sections && !activeResumeId && sections.length === 0) {
       const convertedSections: TemplateSection[] = templateData.sections.map((section) => ({
         id: section.id,
         title: section.name,
@@ -173,20 +215,20 @@ export default function RunInspection() {
       }));
       setSections(convertedSections);
     }
-  }, [templateData, resumeInspectionId]);
+  }, [templateData, activeResumeId]);
 
   // Initialize inspection in database when using real template (new inspection only)
   useEffect(() => {
     const initInspection = async () => {
-      if (templateId && !inspectionId && templateData && !resumeInspectionId) {
-        const inspection = await createInspection(templateId, inspectionTitle);
+      if (activeTemplateId && !inspectionId && templateData && !activeResumeId) {
+        const inspection = await createInspection(activeTemplateId, inspectionTitle);
         if (inspection) {
           setInspectionId(inspection.id);
         }
       }
     };
     initInspection();
-  }, [templateId, templateData, resumeInspectionId]);
+  }, [activeTemplateId, templateData, activeResumeId]);
 
   const handleAnswer = (questionId: string, answer: Partial<QuestionAnswer>) => {
     setAnswers((prev) => ({
@@ -204,7 +246,6 @@ export default function RunInspection() {
   };
 
   const handleCancelWorkOrder = () => {
-    // Revert the answer when canceling the work order modal
     if (workOrderModal.questionId) {
       setAnswers((prev) => {
         const updated = { ...prev };
@@ -215,7 +256,7 @@ export default function RunInspection() {
   };
 
   const handleSaveWorkOrder = async (data: any) => {
-    if (templateId || resumeInspectionId) {
+    if (activeTemplateId || activeResumeId) {
       await createWorkOrder({
         title: data.title,
         description: data.description,
@@ -270,11 +311,10 @@ export default function RunInspection() {
       await saveInspectionAnswers(inspectionId, answerData);
       toast.success("Draft saved successfully");
     } else {
-      // Save offline
       saveInspectionOffline({
         inspectionId,
         title: inspectionTitle,
-        templateId: templateId || "",
+        templateId: activeTemplateId || "",
         answers: answerData,
         totalScore,
         maxScore,
@@ -315,11 +355,10 @@ export default function RunInspection() {
         await saveInspectionAnswers(inspectionId, answerData);
         await completeInspection(inspectionId, totalScore, maxScore);
       } else {
-        // Save for offline sync
         saveInspectionOffline({
           inspectionId,
           title: inspectionTitle,
-          templateId: templateId || "",
+          templateId: activeTemplateId || "",
           answers: answerData,
           totalScore,
           maxScore,
@@ -331,6 +370,8 @@ export default function RunInspection() {
       toast.success("Inspection submitted successfully!");
     }
 
+    // Clear persisted state on successful submit
+    clearAllPersisted();
     setSaving(false);
     navigate("/inspections");
   };
@@ -376,7 +417,7 @@ export default function RunInspection() {
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <Button variant="ghost" onClick={() => navigate("/checklists")}>
+          <Button variant="ghost" onClick={() => { clearAllPersisted(); navigate("/checklists"); }}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Checklists
           </Button>

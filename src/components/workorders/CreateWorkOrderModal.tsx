@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { MediaUploader, UploadedMedia } from "@/components/media/MediaUploader";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 interface CreateWorkOrderModalProps {
   open: boolean;
@@ -47,6 +48,8 @@ const priorities = [
   { value: "low", label: "Low", color: "text-muted-foreground" },
 ];
 
+const SESSION_KEY = "create_wo_form";
+
 export function CreateWorkOrderModal({ 
   open, 
   onClose, 
@@ -54,12 +57,12 @@ export function CreateWorkOrderModal({
   defaultValues,
   departments = [],
 }: CreateWorkOrderModalProps) {
-  const [title, setTitle] = useState(defaultValues?.title || "");
-  const [description, setDescription] = useState(defaultValues?.description || "");
-  const [location, setLocation] = useState(defaultValues?.location || "");
-  const [priority, setPriority] = useState("medium");
-  const [dueDate, setDueDate] = useState("");
-  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [title, setTitle, clearTitle] = usePersistedState(SESSION_KEY + "_title", defaultValues?.title || "");
+  const [description, setDescription, clearDesc] = usePersistedState(SESSION_KEY + "_desc", defaultValues?.description || "");
+  const [location, setLocation, clearLoc] = usePersistedState(SESSION_KEY + "_loc", defaultValues?.location || "");
+  const [priority, setPriority, clearPri] = usePersistedState(SESSION_KEY + "_pri", "medium");
+  const [dueDate, setDueDate, clearDue] = usePersistedState(SESSION_KEY + "_due", "");
+  const [selectedDepartment, setSelectedDepartment, clearDept] = usePersistedState(SESSION_KEY + "_dept", "");
   const [tempWorkOrderId] = useState(() => crypto.randomUUID());
   const [uploadedMedia, setUploadedMedia] = useState<UploadedMedia[]>([]);
 
@@ -72,6 +75,22 @@ export function CreateWorkOrderModal({
       setLocation(defaultValues.location || "");
     }
   }, [open, defaultValues]);
+
+  const clearAllForm = () => {
+    clearTitle();
+    clearDesc();
+    clearLoc();
+    clearPri();
+    clearDue();
+    clearDept();
+    setTitle("");
+    setDescription("");
+    setLocation("");
+    setPriority("medium");
+    setDueDate("");
+    setSelectedDepartment("");
+    setUploadedMedia([]);
+  };
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -86,14 +105,7 @@ export function CreateWorkOrderModal({
       tempWorkOrderId: uploadedMedia.length > 0 ? tempWorkOrderId : undefined,
     });
 
-    // Reset form
-    setTitle("");
-    setDescription("");
-    setLocation("");
-    setPriority("medium");
-    setDueDate("");
-    setSelectedDepartment("");
-    setUploadedMedia([]);
+    clearAllForm();
   };
 
   const handleMediaUpload = (media: UploadedMedia) => {
