@@ -34,6 +34,7 @@ export default function InspectionDetail() {
   const [completedByName, setCompletedByName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [defectWorkOrders, setDefectWorkOrders] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (id) {
@@ -74,6 +75,23 @@ export default function InspectionDetail() {
 
       if (answersError) throw answersError;
       setAnswers(answersData || []);
+
+      // Fetch linked work orders for defects
+      const { data: workOrdersData } = await supabase
+        .from("work_orders")
+        .select("id, linked_defect_question")
+        .eq("linked_inspection_id", id!)
+        .not("linked_defect_question", "is", null);
+
+      if (workOrdersData) {
+        const mapping: Record<string, string> = {};
+        workOrdersData.forEach((wo) => {
+          if (wo.linked_defect_question) {
+            mapping[wo.linked_defect_question] = wo.id;
+          }
+        });
+        setDefectWorkOrders(mapping);
+      }
     } catch (error: any) {
       console.error("Error fetching inspection:", error);
       toast({
@@ -318,9 +336,14 @@ export default function InspectionDetail() {
                     className={cn(
                       "p-4 rounded-lg border",
                       answer.is_defect
-                        ? "border-destructive/50 bg-destructive/5"
+                        ? "border-destructive/50 bg-destructive/5 cursor-pointer hover:bg-destructive/10 transition-colors"
                         : "border-border bg-card"
                     )}
+                    onClick={() => {
+                      if (answer.is_defect && defectWorkOrders[answer.question_text]) {
+                        navigate(`/work-orders?highlight=${defectWorkOrders[answer.question_text]}`);
+                      }
+                    }}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
@@ -391,7 +414,15 @@ export default function InspectionDetail() {
                   .map((defect, index) => (
                     <div
                       key={defect.id}
-                      className="p-3 rounded-lg bg-destructive/5 border border-destructive/20"
+                      className={cn(
+                        "p-3 rounded-lg bg-destructive/5 border border-destructive/20",
+                        defectWorkOrders[defect.question_text] && "cursor-pointer hover:bg-destructive/10 transition-colors"
+                      )}
+                      onClick={() => {
+                        if (defectWorkOrders[defect.question_text]) {
+                          navigate(`/work-orders?highlight=${defectWorkOrders[defect.question_text]}`);
+                        }
+                      }}
                     >
                       <p className="font-medium text-foreground">{defect.question_text}</p>
                       {defect.notes && (
