@@ -58,7 +58,6 @@ export function useChecklistTemplates() {
         .select(`
           *,
           department:departments(id, name),
-          assigned_profile:profiles!checklist_templates_assigned_to_fkey(full_name),
           sections:template_sections(
             *,
             questions:template_questions(*)
@@ -80,6 +79,27 @@ export function useChecklistTemplates() {
             ),
           })),
       }));
+
+      // Fetch assigned user names
+      const assignedUserIds = sorted
+        .filter((t: any) => t.assigned_to)
+        .map((t: any) => t.assigned_to);
+
+      if (assignedUserIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", assignedUserIds);
+
+        if (profilesData) {
+          const profileMap = new Map(profilesData.map(p => [p.user_id, p.full_name]));
+          sorted.forEach((t: any) => {
+            if (t.assigned_to && profileMap.has(t.assigned_to)) {
+              t.assigned_profile = { full_name: profileMap.get(t.assigned_to) };
+            }
+          });
+        }
+      }
 
       setTemplates(sorted);
     } catch (error: any) {
