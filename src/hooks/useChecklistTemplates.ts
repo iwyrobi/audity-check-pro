@@ -12,11 +12,15 @@ export interface ChecklistTemplateDB {
   created_by: string | null;
   created_at: string;
   once_daily: boolean;
+  assigned_to: string | null;
   sections?: TemplateSectionDB[];
   department?: {
     id: string;
     name: string;
   };
+  assigned_profile?: {
+    full_name: string | null;
+  } | null;
 }
 
 export interface TemplateSectionDB {
@@ -54,6 +58,7 @@ export function useChecklistTemplates() {
         .select(`
           *,
           department:departments(id, name),
+          assigned_profile:profiles!checklist_templates_assigned_to_fkey(full_name),
           sections:template_sections(
             *,
             questions:template_questions(*)
@@ -100,7 +105,8 @@ export function useChecklistTemplates() {
     description: string,
     category: string,
     sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[],
-    onceDaily: boolean = false
+    onceDaily: boolean = false,
+    assignedTo: string | null = null
   ) => {
     if (!user || !profile?.department_id) {
       toast({
@@ -122,6 +128,7 @@ export function useChecklistTemplates() {
           category,
           created_by: user.id,
           once_daily: onceDaily,
+          assigned_to: assignedTo,
         })
         .select()
         .single();
@@ -180,7 +187,8 @@ export function useChecklistTemplates() {
     name: string,
     description: string,
     sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[],
-    onceDaily: boolean = false
+    onceDaily: boolean = false,
+    assignedTo: string | null = null
   ) => {
     if (!user) return null;
 
@@ -188,7 +196,7 @@ export function useChecklistTemplates() {
       // Update template
       const { error: templateError } = await supabase
         .from("checklist_templates")
-        .update({ name, description, once_daily: onceDaily })
+        .update({ name, description, once_daily: onceDaily, assigned_to: assignedTo })
         .eq("id", templateId);
 
       if (templateError) throw templateError;
