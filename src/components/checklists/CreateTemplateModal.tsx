@@ -9,11 +9,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { TemplateBuilder, TemplateSection } from "./TemplateBuilder";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChecklistTemplateDB } from "@/hooks/useChecklistTemplates";
+import { useDepartments } from "@/hooks/useDepartments";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CreateTemplateModalProps {
   open: boolean;
@@ -22,6 +31,7 @@ interface CreateTemplateModalProps {
     title: string;
     description: string;
     onceDaily: boolean;
+    assignedTo: string | null;
     sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[];
   }) => void;
   editTemplate?: ChecklistTemplateDB | null;
@@ -30,9 +40,13 @@ interface CreateTemplateModalProps {
 
 export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyTemplate }: CreateTemplateModalProps) {
   const { department } = useAuth();
+  const { departments } = useDepartments();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [onceDaily, setOnceDaily] = useState(false);
+  const [assignedTo, setAssignedTo] = useState<string | null>(null);
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>("all");
+  const [departmentUsers, setDepartmentUsers] = useState<{ user_id: string; full_name: string | null }[]>([]);
   const [sections, setSections] = useState<TemplateSection[]>([
     {
       id: "section-1",
@@ -50,6 +64,19 @@ export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyT
     },
   ]);
 
+  // Fetch users when department filter changes
+  useEffect(() => {
+    const fetchUsers = async () => {
+      let query = supabase.from("profiles").select("user_id, full_name");
+      if (selectedDeptFilter !== "all") {
+        query = query.eq("department_id", selectedDeptFilter);
+      }
+      const { data } = await query.order("full_name");
+      setDepartmentUsers(data || []);
+    };
+    if (open) fetchUsers();
+  }, [selectedDeptFilter, open]);
+
   // Populate form when editing or copying
   useEffect(() => {
     const template = editTemplate || copyTemplate;
@@ -57,6 +84,7 @@ export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyT
       setTitle(copyTemplate ? `${template.name} (Copy)` : template.name);
       setDescription(template.description || "");
       setOnceDaily(template.once_daily || false);
+      setAssignedTo(template.assigned_to || null);
       
       if (template.sections && template.sections.length > 0) {
         setSections(
@@ -79,6 +107,7 @@ export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyT
       setTitle("");
       setDescription("");
       setOnceDaily(false);
+      setAssignedTo(null);
       setSections([
         {
           id: "section-1",
@@ -114,6 +143,7 @@ export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyT
       title,
       description,
       onceDaily,
+      assignedTo,
       sections: sections.map(s => ({
         title: s.title,
         questions: s.questions
@@ -134,6 +164,7 @@ export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyT
     setTitle("");
     setDescription("");
     setOnceDaily(false);
+    setAssignedTo(null);
     setSections([
       {
         id: "section-1",
@@ -198,6 +229,42 @@ export function CreateTemplateModal({ open, onClose, onSave, editTemplate, copyT
                 disabled
                 className="bg-muted"
               />
+            </div>
+          </div>
+
+          {/* Assign To User */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Filter by Department</label>
+              <Select value={selectedDeptFilter} onValueChange={setSelectedDeptFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Departments" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Assign To User</label>
+              <Select value={assignedTo || "none"} onValueChange={(v) => setAssignedTo(v === "none" ? null : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="No assignment" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="none">No assignment</SelectItem>
+                  {departmentUsers.map((u) => (
+                    <SelectItem key={u.user_id} value={u.user_id}>
+                      {u.full_name || "Unnamed User"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
