@@ -49,7 +49,6 @@ export default function Checklists() {
     title: string;
     description: string;
     onceDaily: boolean;
-    assignedTo: string | null;
     sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[];
   }) => {
     if (editingTemplate) {
@@ -59,8 +58,7 @@ export default function Checklists() {
         templateData.title,
         templateData.description,
         templateData.sections,
-        templateData.onceDaily,
-        templateData.assignedTo
+        templateData.onceDaily
       );
       if (result) {
         setIsCreateModalOpen(false);
@@ -73,8 +71,7 @@ export default function Checklists() {
         templateData.description,
         department?.name || "General",
         templateData.sections,
-        templateData.onceDaily,
-        templateData.assignedTo
+        templateData.onceDaily
       );
       if (result) {
         setIsCreateModalOpen(false);
@@ -219,7 +216,6 @@ export default function Checklists() {
                   description: template.description || "",
                   departmentName: template.department?.name || "No Department",
                   itemCount: getQuestionCount(template),
-                  assignedTo: template.assigned_profile?.full_name || undefined,
                   status: "active",
                 }}
                 templateData={template}

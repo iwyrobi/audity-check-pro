@@ -12,15 +12,11 @@ export interface ChecklistTemplateDB {
   created_by: string | null;
   created_at: string;
   once_daily: boolean;
-  assigned_to: string | null;
   sections?: TemplateSectionDB[];
   department?: {
     id: string;
     name: string;
   };
-  assigned_profile?: {
-    full_name: string | null;
-  } | null;
 }
 
 export interface TemplateSectionDB {
@@ -80,27 +76,6 @@ export function useChecklistTemplates() {
           })),
       }));
 
-      // Fetch assigned user names
-      const assignedUserIds = sorted
-        .filter((t: any) => t.assigned_to)
-        .map((t: any) => t.assigned_to);
-
-      if (assignedUserIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from("profiles")
-          .select("user_id, full_name")
-          .in("user_id", assignedUserIds);
-
-        if (profilesData) {
-          const profileMap = new Map(profilesData.map(p => [p.user_id, p.full_name]));
-          sorted.forEach((t: any) => {
-            if (t.assigned_to && profileMap.has(t.assigned_to)) {
-              t.assigned_profile = { full_name: profileMap.get(t.assigned_to) };
-            }
-          });
-        }
-      }
-
       setTemplates(sorted);
     } catch (error: any) {
       console.error("Error fetching templates:", error);
@@ -125,8 +100,7 @@ export function useChecklistTemplates() {
     description: string,
     category: string,
     sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[],
-    onceDaily: boolean = false,
-    assignedTo: string | null = null
+    onceDaily: boolean = false
   ) => {
     if (!user || !profile?.department_id) {
       toast({
@@ -148,7 +122,6 @@ export function useChecklistTemplates() {
           category,
           created_by: user.id,
           once_daily: onceDaily,
-          assigned_to: assignedTo,
         })
         .select()
         .single();
@@ -207,8 +180,7 @@ export function useChecklistTemplates() {
     name: string,
     description: string,
     sections: { title: string; questions: { text: string; type: string; score: number; required: boolean }[] }[],
-    onceDaily: boolean = false,
-    assignedTo: string | null = null
+    onceDaily: boolean = false
   ) => {
     if (!user) return null;
 
@@ -216,7 +188,7 @@ export function useChecklistTemplates() {
       // Update template
       const { error: templateError } = await supabase
         .from("checklist_templates")
-        .update({ name, description, once_daily: onceDaily, assigned_to: assignedTo })
+        .update({ name, description, once_daily: onceDaily })
         .eq("id", templateId);
 
       if (templateError) throw templateError;
