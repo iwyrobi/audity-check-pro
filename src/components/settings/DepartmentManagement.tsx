@@ -33,7 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export function DepartmentManagement() {
   const { departments, loading, fetchDepartments } = useDepartments();
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, profile } = useAuth();
   const { subscription, canAddDepartment } = useSubscription();
   const { toast } = useToast();
   
@@ -126,6 +126,7 @@ export function DepartmentManagement() {
           name: formData.name.trim(),
           description: formData.description.trim() || null,
           parent_id: formData.parent_id || null,
+          organization_id: profile?.organization_id || null,
         });
 
         if (error) throw error;
