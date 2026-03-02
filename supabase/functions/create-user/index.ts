@@ -13,6 +13,7 @@ interface CreateUserRequest {
   full_name: string;
   department_id: string | null;
   role: "super_admin" | "admin" | "department_head" | "user";
+  organization_id: string | null;
 }
 
 serve(async (req: Request) => {
@@ -55,7 +56,7 @@ serve(async (req: Request) => {
     }
 
     // Parse request body
-    const { email, password, full_name, department_id, role }: CreateUserRequest = await req.json();
+    const { email, password, full_name, department_id, role, organization_id }: CreateUserRequest = await req.json();
 
     if (!email || !password) {
       throw new Error("Email and password are required");
@@ -89,18 +90,6 @@ serve(async (req: Request) => {
       throw new Error("Failed to create user");
     }
 
-    // Update profile with department and organization
-    // First, get the organization_id from the department if specified
-    let organization_id: string | null = null;
-    if (department_id) {
-      const { data: deptData } = await adminClient
-        .from("departments")
-        .select("organization_id")
-        .eq("id", department_id)
-        .single();
-      organization_id = deptData?.organization_id || null;
-    }
-
     // Update profile with department, organization, and name
     const profileUpdate: Record<string, unknown> = {};
     if (full_name) profileUpdate.full_name = full_name;
@@ -112,6 +101,17 @@ serve(async (req: Request) => {
         .from("profiles")
         .update(profileUpdate)
         .eq("user_id", newUser.user.id);
+    }
+
+    // Add to organization_members if organization_id provided
+    if (organization_id) {
+      await adminClient
+        .from("organization_members")
+        .insert({
+          organization_id,
+          user_id: newUser.user.id,
+          role: "member",
+        });
     }
 
     // Update role (delete default 'user' role and insert new one if different)

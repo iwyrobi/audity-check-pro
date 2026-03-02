@@ -43,7 +43,7 @@ interface UserWithProfile {
 }
 
 export function UserManagement() {
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, profile } = useAuth();
   const { departments } = useDepartments();
   const { subscription, canAddUser, formatBytes, storageUsagePercent } = useSubscription();
   const { toast } = useToast();
@@ -69,7 +69,7 @@ export function UserManagement() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      // Fetch profiles with department info
+      // Fetch profiles with department info - filtered by organization
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select(`
@@ -78,7 +78,8 @@ export function UserManagement() {
           full_name,
           department_id,
           departments:department_id(name)
-        `);
+        `)
+        .eq("organization_id", profile?.organization_id ?? "");
 
       if (profilesError) throw profilesError;
 
@@ -267,6 +268,7 @@ export function UserManagement() {
           full_name: createFormData.full_name,
           department_id: createFormData.department_id || null,
           role: createFormData.role,
+          organization_id: profile?.organization_id || null,
         },
       });
 
