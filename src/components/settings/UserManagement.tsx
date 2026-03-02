@@ -190,22 +190,13 @@ export function UserManagement() {
 
       if (profileError) throw profileError;
 
-      // Update role - first delete existing roles, then insert new one
-      const { error: deleteError } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", editingUser.id);
+      // Update role atomically using security definer function
+      const { error: roleError } = await supabase.rpc("set_user_role", {
+        _target_user_id: editingUser.id,
+        _new_role: formData.role as "super_admin" | "admin" | "department_head" | "user",
+      });
 
-      if (deleteError) throw deleteError;
-
-      const { error: insertError } = await supabase
-        .from("user_roles")
-        .insert({
-          user_id: editingUser.id,
-          role: formData.role as "super_admin" | "admin" | "department_head" | "user",
-        });
-
-      if (insertError) throw insertError;
+      if (roleError) throw roleError;
 
       // Update password if provided
       if (formData.newPassword && formData.newPassword.length >= 6) {

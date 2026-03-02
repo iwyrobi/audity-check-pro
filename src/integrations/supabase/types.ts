@@ -843,6 +843,13 @@ export type Database = {
         Args: { _new_department_id: string; _work_order_id: string }
         Returns: undefined
       }
+      set_user_role: {
+        Args: {
+          _new_role: Database["public"]["Enums"]["app_role"]
+          _target_user_id: string
+        }
+        Returns: undefined
+      }
       update_org_storage: {
         Args: { _bytes_delta: number; _org_id: string }
         Returns: undefined
