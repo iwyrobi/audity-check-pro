@@ -7,15 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClipboardCheck, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
-
-interface Department {
-  id: string;
-  name: string;
-}
 
 const emailSchema = z.string().email("Please enter a valid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
@@ -24,12 +18,11 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [orgName, setOrgName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   
-  const { signIn, signUp, user, loading } = useAuth();
+  const { signIn, user, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -38,14 +31,6 @@ export default function Auth() {
       navigate("/");
     }
   }, [user, loading, navigate]);
-
-  useEffect(() => {
-    const fetchDepartments = async () => {
-      const { data } = await supabase.from("departments").select("id, name");
-      if (data) setDepartments(data);
-    };
-    fetchDepartments();
-  }, []);
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -89,38 +74,58 @@ export default function Auth() {
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    if (!departmentId) {
-      toast({
-        title: "Department required",
-        description: "Please select a department to continue.",
-        variant: "destructive",
-      });
+    if (!fullName.trim()) {
+      toast({ title: "Full name required", variant: "destructive" });
+      return;
+    }
+    if (!orgName.trim() || orgName.trim().length < 2) {
+      toast({ title: "Organization name must be at least 2 characters", variant: "destructive" });
       return;
     }
 
     setIsLoading(true);
-    const { error } = await signUp(email, password, fullName, departmentId);
-    setIsLoading(false);
+    try {
+      const { data, error } = await supabase.functions.invoke("register-organization", {
+        body: {
+          email,
+          password,
+          full_name: fullName.trim(),
+          organization_name: orgName.trim(),
+        },
+      });
 
-    if (error) {
-      let message = error.message;
-      if (error.message.includes("already registered")) {
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Auto sign-in after registration
+      const { error: signInError } = await signIn(email, password);
+      if (signInError) {
+        toast({
+          title: "Account created!",
+          description: "Your organization has been set up. Please sign in.",
+        });
+      } else {
+        toast({
+          title: "Welcome!",
+          description: "Your organization has been created. You can now set up departments and invite users from Settings.",
+        });
+      }
+    } catch (error: any) {
+      let message = error.message || "Registration failed";
+      if (message.includes("already been registered") || message.includes("already registered")) {
         message = "This email is already registered. Please sign in instead.";
       }
       toast({
-        title: "Sign up failed",
+        title: "Registration failed",
         description: message,
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Account created",
-        description: "You can now sign in with your credentials.",
-      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -145,46 +150,123 @@ export default function Auth() {
           <CardDescription>Inspection & Work Order Management</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSignIn} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="signin-email">Email</Label>
-              <Input
-                id="signin-email"
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="signin-password">Password</Label>
-              <Input
-                id="signin-password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password}</p>
-              )}
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign In"
-              )}
-            </Button>
-          </form>
+          <Tabs defaultValue="signin" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="signin">Sign In</TabsTrigger>
+              <TabsTrigger value="register">Register</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="signin">
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signin-email">Email</Label>
+                  <Input
+                    id="signin-email"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-destructive">{errors.email}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signin-password">Password</Label>
+                  <Input
+                    id="signin-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  {errors.password && (
+                    <p className="text-sm text-destructive">{errors.password}</p>
+                  )}
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="register">
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reg-name">Full Name</Label>
+                  <Input
+                    id="reg-name"
+                    type="text"
+                    placeholder="John Doe"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reg-org">Organization Name</Label>
+                  <Input
+                    id="reg-org"
+                    type="text"
+                    placeholder="Acme Corp"
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reg-email">Email</Label>
+                  <Input
+                    id="reg-email"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-destructive">{errors.email}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reg-password">Password</Label>
+                  <Input
+                    id="reg-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  {errors.password && (
+                    <p className="text-sm text-destructive">{errors.password}</p>
+                  )}
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    "Create Organization"
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  You'll be set up as the administrator. You can then invite team members from Settings.
+                </p>
+              </form>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
