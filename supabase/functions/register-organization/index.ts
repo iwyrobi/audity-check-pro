@@ -115,14 +115,21 @@ serve(async (req: Request) => {
       .eq("user_id", userId);
 
     // 5. Upgrade role from 'user' to 'super_admin'
+    // Wait briefly to ensure the handle_new_user trigger has completed
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     await adminClient
       .from("user_roles")
       .delete()
       .eq("user_id", userId);
 
-    await adminClient
+    const { error: roleError } = await adminClient
       .from("user_roles")
       .insert({ user_id: userId, role: "super_admin" });
+
+    if (roleError) {
+      console.error("Failed to set super_admin role:", roleError);
+    }
 
     return new Response(
       JSON.stringify({
