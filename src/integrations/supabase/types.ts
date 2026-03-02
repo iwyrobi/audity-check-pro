@@ -61,42 +61,6 @@ export type Database = {
           },
         ]
       }
-      company_settings: {
-        Row: {
-          address: string | null
-          created_at: string
-          email: string | null
-          id: string
-          logo_url: string | null
-          name: string
-          phone: string | null
-          updated_at: string
-          website: string | null
-        }
-        Insert: {
-          address?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          logo_url?: string | null
-          name?: string
-          phone?: string | null
-          updated_at?: string
-          website?: string | null
-        }
-        Update: {
-          address?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          logo_url?: string | null
-          name?: string
-          phone?: string | null
-          updated_at?: string
-          website?: string | null
-        }
-        Relationships: []
-      }
       departments: {
         Row: {
           created_at: string
