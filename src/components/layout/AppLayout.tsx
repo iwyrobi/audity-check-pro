@@ -13,8 +13,8 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  DropdownMenuTrigger } from
+"@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -42,16 +42,16 @@ export function AppLayout({ children, title }: AppLayoutProps) {
           "fixed inset-0 z-40 bg-black/50 lg:hidden transition-opacity",
           sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
-        onClick={() => setSidebarOpen(false)}
-      />
+        onClick={() => setSidebarOpen(false)} />
+      
       
       {/* Sidebar */}
       <div
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 lg:relative lg:z-0 transition-transform lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
+        className={cn("fixed inset-y-0 left-0 z-50 lg:relative lg:z-0 transition-transform lg:translate-x-0 bg-primary",
+
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}>
+        
         <AppSidebar onClose={() => setSidebarOpen(false)} />
       </div>
 
@@ -65,15 +65,15 @@ export function AppLayout({ children, title }: AppLayoutProps) {
               variant="ghost"
               size="icon"
               className="lg:hidden"
-              onClick={() => setSidebarOpen(true)}
-            >
+              onClick={() => setSidebarOpen(true)}>
+              
               <Menu className="w-5 h-5" />
             </Button>
-            {title && (
-              <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">
+            {title &&
+            <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">
                 {title}
               </h1>
-            )}
+            }
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <OfflineIndicator />
@@ -83,8 +83,8 @@ export function AppLayout({ children, title }: AppLayoutProps) {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search..."
-                className="w-48 lg:w-64 pl-9 bg-secondary border-0 focus-visible:ring-1"
-              />
+                className="w-48 lg:w-64 pl-9 bg-secondary border-0 focus-visible:ring-1" />
+              
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -104,17 +104,17 @@ export function AppLayout({ children, title }: AppLayoutProps) {
                     <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                     <div className="flex items-center gap-2 mt-1">
                       {getRoleBadge()}
-                      {department && (
-                        <Badge variant="outline">{department.name}</Badge>
-                      )}
+                      {department &&
+                      <Badge variant="outline">{department.name}</Badge>
+                      }
                     </div>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  onClick={() => window.location.href = "/profile"} 
-                  className="cursor-pointer"
-                >
+                <DropdownMenuItem
+                  onClick={() => window.location.href = "/profile"}
+                  className="cursor-pointer">
+                  
                   <User className="w-4 h-4 mr-2" />
                   My Profile
                 </DropdownMenuItem>
@@ -132,6 +132,6 @@ export function AppLayout({ children, title }: AppLayoutProps) {
           {children}
         </main>
       </div>
-    </div>
-  );
+    </div>);
+
 }
