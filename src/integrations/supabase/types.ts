@@ -348,6 +348,7 @@ export type Database = {
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           stripe_subscription_status: string | null
+          subscription_expires_at: string | null
           subscription_plan_id: string
           trial_ends_at: string | null
           updated_at: string
@@ -367,6 +368,7 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           stripe_subscription_status?: string | null
+          subscription_expires_at?: string | null
           subscription_plan_id: string
           trial_ends_at?: string | null
           updated_at?: string
@@ -386,6 +388,7 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           stripe_subscription_status?: string | null
+          subscription_expires_at?: string | null
           subscription_plan_id?: string
           trial_ends_at?: string | null
           updated_at?: string
@@ -397,6 +400,71 @@ export type Database = {
             columns: ["subscription_plan_id"]
             isOneToOne: false
             referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          billing_cycle: string
+          created_at: string
+          currency: string
+          id: string
+          invoice_number: string | null
+          order_id: string
+          organization_id: string
+          paid_at: string | null
+          payment_method: string | null
+          plan_tier: string
+          status: string
+          subscription_end: string | null
+          subscription_start: string | null
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          billing_cycle: string
+          created_at?: string
+          currency?: string
+          id?: string
+          invoice_number?: string | null
+          order_id: string
+          organization_id: string
+          paid_at?: string | null
+          payment_method?: string | null
+          plan_tier: string
+          status?: string
+          subscription_end?: string | null
+          subscription_start?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          billing_cycle?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          invoice_number?: string | null
+          order_id?: string
+          organization_id?: string
+          paid_at?: string | null
+          payment_method?: string | null
+          plan_tier?: string
+          status?: string
+          subscription_end?: string | null
+          subscription_start?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
