@@ -22,12 +22,31 @@ import {
   Lock,
 } from "lucide-react";
 
+const EXCHANGE_RATE = 16000; // 1 USD ≈ 16,000 IDR
+
+type Currency = "IDR" | "USD";
+
+const currencyConfig: Record<Currency, { symbol: string; locale: string; code: string }> = {
+  IDR: { symbol: "Rp", locale: "id-ID", code: "IDR" },
+  USD: { symbol: "$", locale: "en-US", code: "USD" },
+};
+
+const formatPrice = (amount: number, currency: Currency): string => {
+  if (currency === "IDR") {
+    // Format as "Rp 400.000"
+    return `Rp ${amount.toLocaleString("id-ID")}`;
+  }
+  return `$${amount.toLocaleString("en-US")}`;
+};
+
 const plans = [
   {
     name: "Starter",
     tier: "starter",
-    priceMonthly: 25,
-    priceYearly: Math.round(25 * 12 * 0.85),
+    priceMonthlyUSD: 25,
+    priceYearlyUSD: Math.round(25 * 12 * 0.85),
+    priceMonthlyIDR: 400000,
+    priceYearlyIDR: Math.round(400000 * 12 * 0.85),
     description: "Perfect for small teams getting started with inspections.",
     features: {
       users: "Up to 5",
@@ -44,8 +63,10 @@ const plans = [
   {
     name: "Professional",
     tier: "professional",
-    priceMonthly: 59,
-    priceYearly: Math.round(59 * 12 * 0.85),
+    priceMonthlyUSD: 59,
+    priceYearlyUSD: Math.round(59 * 12 * 0.85),
+    priceMonthlyIDR: 950000,
+    priceYearlyIDR: Math.round(950000 * 12 * 0.85),
     description: "For growing teams that need analytics and more capacity.",
     features: {
       users: "Up to 25",
@@ -62,8 +83,10 @@ const plans = [
   {
     name: "Business",
     tier: "enterprise",
-    priceMonthly: null,
-    priceYearly: null,
+    priceMonthlyUSD: null,
+    priceYearlyUSD: null,
+    priceMonthlyIDR: null,
+    priceYearlyIDR: null,
     description: "For large organizations with custom needs and compliance requirements.",
     features: {
       users: "Unlimited",
@@ -91,6 +114,7 @@ const featureRows = [
 
 export default function Landing() {
   const [isYearly, setIsYearly] = useState(false);
+  const [currency, setCurrency] = useState<Currency>("IDR");
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -213,8 +237,25 @@ export default function Landing() {
               Choose the plan that fits your team. All plans include a 30-day free trial. No credit card required.
             </p>
 
-            {/* Toggle */}
-            <div className="mt-8 flex items-center justify-center gap-3">
+            {/* Currency selector */}
+            <div className="mt-6 flex items-center justify-center gap-2">
+              {(["IDR", "USD"] as Currency[]).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCurrency(c)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                    currency === c
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {c === "IDR" ? "🇮🇩 IDR" : "🇺🇸 USD"}
+                </button>
+              ))}
+            </div>
+
+            {/* Billing toggle */}
+            <div className="mt-4 flex items-center justify-center gap-3">
               <span
                 className={`text-sm font-medium ${!isYearly ? "text-foreground" : "text-muted-foreground"}`}
               >
@@ -259,20 +300,27 @@ export default function Landing() {
                 </div>
 
                 <div className="mb-8">
-                  {plan.priceMonthly !== null ? (
-                    <>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-bold text-foreground">
-                          ${isYearly ? Math.round(plan.priceYearly! / 12) : plan.priceMonthly}
-                        </span>
-                        <span className="text-muted-foreground text-sm">/mo</span>
-                      </div>
-                      {isYearly && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          ${plan.priceYearly}/yr · billed annually
-                        </p>
-                      )}
-                    </>
+                  {plan.priceMonthlyUSD !== null ? (
+                    (() => {
+                      const monthly = currency === "IDR" ? plan.priceMonthlyIDR! : plan.priceMonthlyUSD;
+                      const yearly = currency === "IDR" ? plan.priceYearlyIDR! : plan.priceYearlyUSD;
+                      const displayPrice = isYearly ? Math.round(yearly / 12) : monthly;
+                      return (
+                        <>
+                          <div className="flex items-baseline gap-1">
+                            <span className={`font-bold text-foreground ${currency === "IDR" ? "text-3xl" : "text-4xl"}`}>
+                              {formatPrice(displayPrice, currency)}
+                            </span>
+                            <span className="text-muted-foreground text-sm">/mo</span>
+                          </div>
+                          {isYearly && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatPrice(yearly, currency)}/yr · billed annually
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()
                   ) : (
                     <div className="flex items-baseline">
                       <span className="text-4xl font-bold text-foreground">Custom</span>
