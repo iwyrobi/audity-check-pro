@@ -22,6 +22,7 @@ import WorkOrderReport from "./pages/WorkOrderReport";
 import Settings from "./pages/Settings";
 import RunInspection from "./pages/RunInspection";
 import Profile from "./pages/Profile";
+import PaymentResult from "./pages/PaymentResult";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
