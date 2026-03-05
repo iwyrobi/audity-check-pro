@@ -88,13 +88,15 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
       <div className="flex items-center justify-between h-14 sm:h-16 px-4 border-b border-sidebar-border">
         {!collapsed &&
         <div className="flex items-center gap-2">
-            <img src="/opsecta-logo.png" alt="Opsecta" className="w-8 h-8 object-contain" />
+            <div className="w-8 h-8 overflow-hidden flex items-center justify-center">
+              <img src="/opsecta-logo.png" alt="Opsecta" className="scale-[3.5]" />
+            </div>
             <span className="font-semibold text-sidebar-foreground">Opsecta</span>
           </div>
         }
         {collapsed &&
-        <div className="mx-auto">
-            <img src="/opsecta-logo.png" alt="Opsecta" className="w-8 h-8 object-contain" />
+        <div className="mx-auto w-8 h-8 overflow-hidden flex items-center justify-center">
+            <img src="/opsecta-logo.png" alt="Opsecta" className="scale-[3.5]" />
           </div>
         }
         {/* Mobile close button */}
