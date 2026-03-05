@@ -142,11 +142,9 @@ export default function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-              <ClipboardCheck className="w-7 h-7 text-primary-foreground" />
-            </div>
+            <img src="/opsecta-logo.png" alt="Opsecta" className="h-12 object-contain" />
           </div>
-          <CardTitle className="text-2xl">CheckMate</CardTitle>
+          <CardTitle className="text-2xl">Opsecta</CardTitle>
           <CardDescription>Inspection & Work Order Management</CardDescription>
         </CardHeader>
         <CardContent>
