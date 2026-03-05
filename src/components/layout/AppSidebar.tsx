@@ -33,7 +33,7 @@ import {
 "@/components/ui/tooltip";
 
 const baseNavigation = [
-{ name: "Dashboard", href: "/", icon: LayoutDashboard, roles: ["all"], feature: null },
+{ name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["all"], feature: null },
 { name: "Checklists", href: "/checklists", icon: ClipboardCheck, roles: ["super_admin", "admin", "user"], feature: null },
 { name: "Inspections", href: "/inspections", icon: ClipboardList, roles: ["all"], feature: null },
 { name: "Work Orders", href: "/work-orders", icon: Wrench, roles: ["all"], feature: "work_orders" as const },

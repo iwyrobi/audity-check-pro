@@ -4,8 +4,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
+import Landing from "./pages/Landing";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
 import Checklists from "./pages/Checklists";
 import Inspections from "./pages/Inspections";
 import InspectionDetail from "./pages/InspectionDetail";
@@ -33,7 +35,25 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function PublicOnly({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -42,96 +62,26 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/auth" element={<Auth />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Index />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/checklists"
-        element={
-          <ProtectedRoute>
-            <Checklists />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/inspections"
-        element={
-          <ProtectedRoute>
-            <Inspections />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/work-orders"
-        element={
-          <ProtectedRoute>
-            <WorkOrders />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reports"
-        element={
-          <ProtectedRoute>
-            <Reports />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reports/inspections"
-        element={
-          <ProtectedRoute>
-            <InspectionReport />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reports/work-orders"
-        element={
-          <ProtectedRoute>
-            <WorkOrderReport />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/run-inspection"
-        element={
-          <ProtectedRoute>
-            <RunInspection />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/inspections/:id"
-        element={
-          <ProtectedRoute>
-            <InspectionDetail />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <Profile />
-          </ProtectedRoute>
-        }
-      />
-      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+      {/* Public routes */}
+      <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      {/* Legacy auth route redirect */}
+      <Route path="/auth" element={<Navigate to="/login" replace />} />
+
+      {/* Protected routes */}
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/checklists" element={<ProtectedRoute><Checklists /></ProtectedRoute>} />
+      <Route path="/inspections" element={<ProtectedRoute><Inspections /></ProtectedRoute>} />
+      <Route path="/work-orders" element={<ProtectedRoute><WorkOrders /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+      <Route path="/reports/inspections" element={<ProtectedRoute><InspectionReport /></ProtectedRoute>} />
+      <Route path="/reports/work-orders" element={<ProtectedRoute><WorkOrderReport /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      <Route path="/run-inspection" element={<ProtectedRoute><RunInspection /></ProtectedRoute>} />
+      <Route path="/inspections/:id" element={<ProtectedRoute><InspectionDetail /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
