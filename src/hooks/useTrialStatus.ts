@@ -76,6 +76,22 @@ export function useTrialStatus() {
 
   useEffect(() => {
     fetchTrialStatus();
+
+    // Refetch when tab becomes visible (e.g. returning from payment)
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchTrialStatus();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    // Also refetch periodically (every 30s) to catch webhook updates
+    const interval = setInterval(fetchTrialStatus, 30000);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      clearInterval(interval);
+    };
   }, [fetchTrialStatus]);
 
   return { trialStatus, loading, refetch: fetchTrialStatus };
