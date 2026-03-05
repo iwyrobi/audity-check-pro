@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
 import Landing from "./pages/Landing";
 import Features from "./pages/Features";
+import Terms from "./pages/Terms";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import TrialExpired from "./pages/TrialExpired";
@@ -55,6 +56,7 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/" element={<Landing />} />
       <Route path="/features" element={<Features />} />
+      <Route path="/terms" element={<Terms />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/auth" element={<Navigate to="/login" replace />} />
