@@ -79,6 +79,8 @@ serve(async (req) => {
 
     const orderId = `opsecta-${org!.id.slice(0, 8)}-${Date.now()}`;
 
+    const BASE_URL = "https://opsecta.com";
+
     const transactionDetails = {
       transaction_details: {
         order_id: orderId,
@@ -99,6 +101,11 @@ serve(async (req) => {
           name: `${plan.name} Plan (${billing_cycle === "yearly" ? "Annual" : "Monthly"})`,
         },
       ],
+      callbacks: {
+        finish: `${BASE_URL}/payment/result?status=finish&order_id=${orderId}`,
+        unfinish: `${BASE_URL}/payment/result?status=unfinish&order_id=${orderId}`,
+        error: `${BASE_URL}/payment/result?status=error&order_id=${orderId}`,
+      },
       custom_field1: profile.organization_id,
       custom_field2: plan_tier,
       custom_field3: billing_cycle,
