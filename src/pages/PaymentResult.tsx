@@ -1,8 +1,9 @@
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { CheckCircle2, Clock, XCircle, ArrowLeft, LayoutDashboard, Settings } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, ArrowLeft, LayoutDashboard, Settings, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 type PaymentStatus = "finish" | "unfinish" | "error";
 
@@ -42,13 +43,36 @@ export default function PaymentResult() {
   const statusParam = searchParams.get("status") as PaymentStatus | null;
   const orderId = searchParams.get("order_id");
   const [countdown, setCountdown] = useState(10);
+  const [verifying, setVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<string | null>(null);
 
   const status = statusParam && statusConfig[statusParam] ? statusParam : "error";
   const config = statusConfig[status];
 
+  // Verify payment with backend on successful/pending redirect
+  useEffect(() => {
+    if ((status === "finish" || status === "unfinish") && orderId) {
+      setVerifying(true);
+      supabase.functions
+        .invoke("verify-payment", {
+          body: { order_id: orderId },
+        })
+        .then(({ data, error }) => {
+          if (error) {
+            console.error("Payment verification error:", error);
+            setVerificationResult("verification_error");
+          } else {
+            console.log("Payment verified:", data);
+            setVerificationResult(data?.status || "unknown");
+          }
+        })
+        .finally(() => setVerifying(false));
+    }
+  }, [status, orderId]);
+
   // Auto-redirect to dashboard after countdown for successful payments
   useEffect(() => {
-    if (status === "finish") {
+    if (status === "finish" && !verifying) {
       const timer = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
@@ -61,7 +85,7 @@ export default function PaymentResult() {
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [status, navigate]);
+  }, [status, navigate, verifying]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -89,6 +113,26 @@ export default function PaymentResult() {
               <p className="text-muted-foreground leading-relaxed">{config.description}</p>
             </div>
 
+            {/* Verification status */}
+            {verifying && (
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Verifying payment and activating subscription...</span>
+              </div>
+            )}
+
+            {verificationResult === "active" && (
+              <div className="bg-emerald-500/10 text-emerald-600 rounded-lg px-4 py-2 text-sm font-medium">
+                ✓ Subscription activated successfully
+              </div>
+            )}
+
+            {verificationResult === "pending" && (
+              <div className="bg-amber-500/10 text-amber-600 rounded-lg px-4 py-2 text-sm font-medium">
+                Payment is being processed — your subscription will activate shortly
+              </div>
+            )}
+
             {/* Order ID */}
             {orderId && (
               <div className="bg-muted/50 rounded-lg px-4 py-3">
@@ -98,7 +142,7 @@ export default function PaymentResult() {
             )}
 
             {/* Auto-redirect notice */}
-            {status === "finish" && countdown > 0 && (
+            {status === "finish" && !verifying && countdown > 0 && (
               <p className="text-sm text-muted-foreground">
                 Redirecting to dashboard in {countdown} seconds...
               </p>
@@ -118,7 +162,7 @@ export default function PaymentResult() {
                   <Button 
                     variant="outline" 
                     className="flex-1"
-                    onClick={() => navigate("/settings")}
+                    onClick={() => navigate("/settings?tab=subscription")}
                   >
                     <Settings className="w-4 h-4 mr-2" />
                     View Subscription
@@ -136,7 +180,7 @@ export default function PaymentResult() {
                   <Button 
                     variant="outline" 
                     className="flex-1"
-                    onClick={() => navigate("/settings")}
+                    onClick={() => navigate("/settings?tab=subscription")}
                   >
                     <Settings className="w-4 h-4 mr-2" />
                     Check Status
@@ -146,7 +190,7 @@ export default function PaymentResult() {
                 <>
                   <Button 
                     className="flex-1"
-                    onClick={() => navigate("/settings")}
+                    onClick={() => navigate("/settings?tab=subscription")}
                   >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Try Again
