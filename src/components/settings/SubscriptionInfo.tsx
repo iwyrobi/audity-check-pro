@@ -337,7 +337,20 @@ export function SubscriptionInfo() {
                     </ul>
 
                     <div className="mt-5">
-                      {isCurrent ? (
+                      {isCurrent && (!subscription.stripe_subscription_status || subscription.stripe_subscription_status === "trialing") ? (
+                        <Button 
+                          className="w-full" 
+                          onClick={() => handleSubscribe(plan.tier)}
+                          disabled={checkoutLoading}
+                        >
+                          {checkoutLoading ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <CreditCard className="w-4 h-4 mr-2" />
+                          )}
+                          Subscribe Now
+                        </Button>
+                      ) : isCurrent ? (
                         <Button variant="outline" className="w-full" disabled>
                           Current Plan
                         </Button>
