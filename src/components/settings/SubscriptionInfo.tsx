@@ -112,7 +112,7 @@ export function SubscriptionInfo() {
   const { subscription, loading, storageUsagePercent, formatBytes } = useSubscription();
   const { checkout, loading: checkoutLoading } = useCheckout();
   const { payments, loading: paymentsLoading } = usePayments();
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, profile } = useAuth();
   const [isYearly, setIsYearly] = useState(false);
   const [currency, setCurrency] = useState<Currency>("IDR");
 
