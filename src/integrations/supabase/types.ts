@@ -863,6 +863,7 @@ export type Database = {
           storage_limit_bytes: number
           storage_used_bytes: number
           stripe_subscription_status: string
+          subscription_expires_at: string
           tier: Database["public"]["Enums"]["subscription_plan_tier"]
         }[]
       }
