@@ -20,8 +20,8 @@ export default function Auth() {
   const [fullName, setFullName] = useState("");
   const [orgName, setOrgName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  
+  const [errors, setErrors] = useState<{email?: string;password?: string;}>({});
+
   const { signIn, user, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -33,8 +33,8 @@ export default function Auth() {
   }, [user, loading, navigate]);
 
   const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
-    
+    const newErrors: {email?: string;password?: string;} = {};
+
     try {
       emailSchema.parse(email);
     } catch (e) {
@@ -66,10 +66,10 @@ export default function Auth() {
     if (error) {
       toast({
         title: "Sign in failed",
-        description: error.message === "Invalid login credentials" 
-          ? "Invalid email or password. Please try again."
-          : error.message,
-        variant: "destructive",
+        description: error.message === "Invalid login credentials" ?
+        "Invalid email or password. Please try again." :
+        error.message,
+        variant: "destructive"
       });
     }
   };
@@ -94,8 +94,8 @@ export default function Auth() {
           email,
           password,
           full_name: fullName.trim(),
-          organization_name: orgName.trim(),
-        },
+          organization_name: orgName.trim()
+        }
       });
 
       if (error) throw error;
@@ -106,12 +106,12 @@ export default function Auth() {
       if (signInError) {
         toast({
           title: "Account created!",
-          description: "Your organization has been set up. Please sign in.",
+          description: "Your organization has been set up. Please sign in."
         });
       } else {
         toast({
           title: "Welcome!",
-          description: "Your organization has been created. You can now set up departments and invite users from Settings.",
+          description: "Your organization has been created. You can now set up departments and invite users from Settings."
         });
       }
     } catch (error: any) {
@@ -122,7 +122,7 @@ export default function Auth() {
       toast({
         title: "Registration failed",
         description: message,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
@@ -133,8 +133,8 @@ export default function Auth() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -143,7 +143,7 @@ export default function Auth() {
         <CardHeader className="text-center">
           <div className="flex justify-center mb-2">
             <div className="h-20 w-20 overflow-hidden flex items-center justify-center">
-              <img src="/opsecta-logo.png" alt="Opsecta" className="scale-[3.5]" />
+              <img alt="Opsecta" className="scale-[3.5]" src="/lovable-uploads/a358ca56-9824-4189-b2f6-a88156f52aac.png" />
             </div>
           </div>
           <CardTitle className="text-2xl">Opsecta</CardTitle>
@@ -166,11 +166,11 @@ export default function Auth() {
                     placeholder="you@company.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                  {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email}</p>
-                  )}
+                    required />
+                  
+                  {errors.email &&
+                  <p className="text-sm text-destructive">{errors.email}</p>
+                  }
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signin-password">Password</Label>
@@ -180,21 +180,21 @@ export default function Auth() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  {errors.password && (
-                    <p className="text-sm text-destructive">{errors.password}</p>
-                  )}
+                    required />
+                  
+                  {errors.password &&
+                  <p className="text-sm text-destructive">{errors.password}</p>
+                  }
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
+                  {isLoading ?
+                  <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Signing in...
-                    </>
-                  ) : (
-                    "Sign In"
-                  )}
+                    </> :
+
+                  "Sign In"
+                  }
                 </Button>
               </form>
             </TabsContent>
@@ -209,8 +209,8 @@ export default function Auth() {
                     placeholder="John Doe"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
+                    required />
+                  
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reg-org">Organization Name</Label>
@@ -220,8 +220,8 @@ export default function Auth() {
                     placeholder="Acme Corp"
                     value={orgName}
                     onChange={(e) => setOrgName(e.target.value)}
-                    required
-                  />
+                    required />
+                  
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reg-email">Email</Label>
@@ -231,11 +231,11 @@ export default function Auth() {
                     placeholder="you@company.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                  {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email}</p>
-                  )}
+                    required />
+                  
+                  {errors.email &&
+                  <p className="text-sm text-destructive">{errors.email}</p>
+                  }
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reg-password">Password</Label>
@@ -245,21 +245,21 @@ export default function Auth() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  {errors.password && (
-                    <p className="text-sm text-destructive">{errors.password}</p>
-                  )}
+                    required />
+                  
+                  {errors.password &&
+                  <p className="text-sm text-destructive">{errors.password}</p>
+                  }
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
+                  {isLoading ?
+                  <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Creating account...
-                    </>
-                  ) : (
-                    "Create Organization"
-                  )}
+                    </> :
+
+                  "Create Organization"
+                  }
                 </Button>
                 <p className="text-xs text-muted-foreground text-center">
                   You'll be set up as the administrator. You can then invite team members from Settings.
@@ -269,6 +269,6 @@ export default function Auth() {
           </Tabs>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>);
+
 }
