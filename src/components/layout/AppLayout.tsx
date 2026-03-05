@@ -1,6 +1,7 @@
 import { ReactNode, useState } from "react";
 import { AppSidebar } from "./AppSidebar";
 import { OfflineIndicator } from "./OfflineIndicator";
+import { TrialBanner } from "@/components/trial/TrialBanner";
 import { Search, User, LogOut, Menu } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,8 @@ export function AppLayout({ children, title }: AppLayoutProps) {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Trial Banner */}
+        <TrialBanner />
         {/* Header */}
         <header className="h-14 sm:h-16 border-b border-border bg-card flex items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">

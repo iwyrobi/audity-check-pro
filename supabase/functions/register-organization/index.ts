@@ -76,8 +76,9 @@ serve(async (req: Request) => {
 
     const userId = newUser.user.id;
 
-    // 2. Create the organization with starter plan
+    // 2. Create the organization with starter plan and 30-day trial
     const starterPlanId = "fc1c42ee-9485-41c1-aab7-ff4ad0de36bd";
+    const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     const { data: org, error: orgError } = await adminClient
       .from("organizations")
@@ -85,6 +86,7 @@ serve(async (req: Request) => {
         name: organization_name.trim(),
         slug: finalSlug,
         subscription_plan_id: starterPlanId,
+        trial_ends_at: trialEndsAt,
       })
       .select("id")
       .single();
@@ -115,7 +117,6 @@ serve(async (req: Request) => {
       .eq("user_id", userId);
 
     // 5. Upgrade role from 'user' to 'super_admin'
-    // Wait briefly to ensure the handle_new_user trigger has completed
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     await adminClient

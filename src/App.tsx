@@ -4,9 +4,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useTrialStatus } from "@/hooks/useTrialStatus";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import TrialExpired from "./pages/TrialExpired";
 import Dashboard from "./pages/Dashboard";
 import Checklists from "./pages/Checklists";
 import Inspections from "./pages/Inspections";
@@ -25,8 +27,9 @@ const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const { trialStatus, loading: trialLoading } = useTrialStatus();
 
-  if (loading) {
+  if (loading || trialLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -38,22 +41,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
-}
-
-function PublicOnly({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (user) {
-    return <Navigate to="/dashboard" replace />;
+  if (trialStatus.trialExpired) {
+    return <TrialExpired />;
   }
 
   return <>{children}</>;
@@ -66,7 +55,6 @@ function AppRoutes() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      {/* Legacy auth route redirect */}
       <Route path="/auth" element={<Navigate to="/login" replace />} />
 
       {/* Protected routes */}
@@ -81,7 +69,6 @@ function AppRoutes() {
       <Route path="/run-inspection" element={<ProtectedRoute><RunInspection /></ProtectedRoute>} />
       <Route path="/inspections/:id" element={<ProtectedRoute><InspectionDetail /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-      {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
