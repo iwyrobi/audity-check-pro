@@ -112,6 +112,9 @@ export default function Landing() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/features")}>
+              Features
+            </Button>
             {user ? (
               <Button onClick={() => navigate("/dashboard")} size="sm">
                 Go to Dashboard
