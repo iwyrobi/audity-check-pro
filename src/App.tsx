@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
 import Landing from "./pages/Landing";
+import Features from "./pages/Features";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import TrialExpired from "./pages/TrialExpired";
@@ -53,6 +54,7 @@ function AppRoutes() {
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<Landing />} />
+      <Route path="/features" element={<Features />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/auth" element={<Navigate to="/login" replace />} />
