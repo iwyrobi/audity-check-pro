@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +21,7 @@ export default function Register() {
   const [orgName, setOrgName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const { signIn, user, loading } = useAuth();
   const navigate = useNavigate();
@@ -46,6 +48,10 @@ export default function Register() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
+    if (!acceptedTerms) {
+      toast({ title: "Please accept the Terms & Conditions", variant: "destructive" });
+      return;
+    }
 
     if (!fullName.trim()) {
       toast({ title: "Full name required", variant: "destructive" });
@@ -138,7 +144,20 @@ export default function Register() {
               <Input id="reg-password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
               {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="terms"
+                checked={acceptedTerms}
+                onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+              />
+              <label htmlFor="terms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+                I agree to the{" "}
+                <Link to="/terms" target="_blank" className="text-primary font-medium hover:underline">
+                  Terms & Conditions
+                </Link>
+              </label>
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading || !acceptedTerms}>
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

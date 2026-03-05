@@ -288,6 +288,7 @@ export default function Features() {
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
               <Link to="/features" className="hover:text-foreground transition-colors">Features</Link>
+              <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
               <Link to="/login" className="hover:text-foreground transition-colors">Sign In</Link>
               <a href="mailto:support@opsecta.com" className="hover:text-foreground transition-colors">Support</a>
             </div>

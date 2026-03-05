@@ -373,6 +373,7 @@ export default function Landing() {
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <Link to="/login" className="hover:text-foreground transition-colors">Sign In</Link>
               <Link to="/register" className="hover:text-foreground transition-colors">Register</Link>
+              <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
               <a href="mailto:support@opsecta.com" className="hover:text-foreground transition-colors">Support</a>
             </div>
             <p className="text-xs text-muted-foreground">
