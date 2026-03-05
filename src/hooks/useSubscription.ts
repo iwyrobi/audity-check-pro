@@ -14,6 +14,7 @@ export interface SubscriptionInfo {
   can_use_analytics: boolean;
   can_use_advanced_permissions: boolean;
   stripe_subscription_status: string | null;
+  subscription_expires_at: string | null;
 }
 
 export function useSubscription() {

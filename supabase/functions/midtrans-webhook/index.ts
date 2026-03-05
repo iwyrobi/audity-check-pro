@@ -32,6 +32,9 @@ serve(async (req) => {
       signature_key,
       transaction_status,
       fraud_status,
+      transaction_id,
+      payment_type,
+      transaction_time,
       custom_field1: organization_id,
       custom_field2: plan_tier,
       custom_field3: billing_cycle,
@@ -77,6 +80,62 @@ serve(async (req) => {
 
     console.log(`Updating org ${organization_id}: status=${subscriptionStatus}, tier=${plan_tier}`);
 
+    // Calculate subscription period
+    const now = new Date();
+    let subscriptionStart = now;
+    let subscriptionEnd: Date;
+    
+    if (billing_cycle === "yearly") {
+      subscriptionEnd = new Date(now);
+      subscriptionEnd.setFullYear(subscriptionEnd.getFullYear() + 1);
+    } else {
+      subscriptionEnd = new Date(now);
+      subscriptionEnd.setMonth(subscriptionEnd.getMonth() + 1);
+    }
+
+    // Generate invoice number
+    const invoiceNumber = `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}-${order_id.split("-").pop()}`;
+
+    // Upsert payment record (webhook may fire multiple times for same order)
+    const paymentData: Record<string, unknown> = {
+      order_id,
+      organization_id,
+      plan_tier: plan_tier || "starter",
+      billing_cycle: billing_cycle || "monthly",
+      amount: Math.round(parseFloat(gross_amount)),
+      currency: "IDR",
+      status: subscriptionStatus,
+      payment_method: payment_type || null,
+      transaction_id: transaction_id || null,
+      invoice_number: invoiceNumber,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (subscriptionStatus === "active") {
+      paymentData.paid_at = transaction_time || now.toISOString();
+      paymentData.subscription_start = subscriptionStart.toISOString();
+      paymentData.subscription_end = subscriptionEnd.toISOString();
+    }
+
+    // Check if payment record exists
+    const { data: existingPayment } = await supabase
+      .from("payments")
+      .select("id")
+      .eq("order_id", order_id)
+      .maybeSingle();
+
+    if (existingPayment) {
+      await supabase
+        .from("payments")
+        .update(paymentData)
+        .eq("order_id", order_id);
+    } else {
+      paymentData.created_at = now.toISOString();
+      await supabase
+        .from("payments")
+        .insert(paymentData);
+    }
+
     // Update organization subscription
     if (organization_id) {
       const updateData: Record<string, unknown> = {
@@ -85,7 +144,7 @@ serve(async (req) => {
         updated_at: new Date().toISOString(),
       };
 
-      // If payment is successful, update plan
+      // If payment is successful, update plan, clear trial, set expiry
       if (subscriptionStatus === "active" && plan_tier) {
         const { data: plan } = await supabase
           .from("subscription_plans")
@@ -96,7 +155,8 @@ serve(async (req) => {
 
         if (plan) {
           updateData.subscription_plan_id = plan.id;
-          updateData.trial_ends_at = null; // Clear trial on successful payment
+          updateData.trial_ends_at = null; // Clear trial
+          updateData.subscription_expires_at = subscriptionEnd.toISOString();
         }
       }
 

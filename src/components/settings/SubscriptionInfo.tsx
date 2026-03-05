@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useCheckout } from "@/hooks/useCheckout";
+import { usePayments, Payment } from "@/hooks/usePayments";
 import { useAuth } from "@/contexts/AuthContext";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   Users, 
   Building2, 
@@ -21,13 +23,25 @@ import {
   CreditCard,
   ArrowUpRight,
   Zap,
-  Mail
+  Mail,
+  Calendar,
+  Receipt,
+  Download,
+  Clock
 } from "lucide-react";
+import { format } from "date-fns";
 
 const EXCHANGE_RATE = 16000;
 type Currency = "IDR" | "USD";
 
 const formatPrice = (amount: number, currency: Currency): string => {
+  if (currency === "IDR") {
+    return `Rp ${amount.toLocaleString("id-ID")}`;
+  }
+  return `$${amount.toLocaleString("en-US")}`;
+};
+
+const formatPaymentAmount = (amount: number, currency: string): string => {
   if (currency === "IDR") {
     return `Rp ${amount.toLocaleString("id-ID")}`;
   }
@@ -69,9 +83,33 @@ const plans = [
 
 const tierOrder = ["starter", "professional", "enterprise"];
 
+const tierNames: Record<string, string> = {
+  starter: "Starter",
+  professional: "Professional",
+  enterprise: "Business",
+};
+
+function getPaymentStatusBadge(status: string) {
+  switch (status) {
+    case "active":
+    case "settlement":
+      return <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Paid</Badge>;
+    case "pending":
+      return <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">Pending</Badge>;
+    case "cancelled":
+    case "expire":
+      return <Badge className="bg-red-500/10 text-red-600 border-red-500/20">Cancelled</Badge>;
+    case "refunded":
+      return <Badge className="bg-purple-500/10 text-purple-600 border-purple-500/20">Refunded</Badge>;
+    default:
+      return <Badge variant="outline" className="capitalize">{status}</Badge>;
+  }
+}
+
 export function SubscriptionInfo() {
   const { subscription, loading, storageUsagePercent, formatBytes } = useSubscription();
   const { checkout, loading: checkoutLoading } = useCheckout();
+  const { payments, loading: paymentsLoading } = usePayments();
   const { isSuperAdmin } = useAuth();
   const [isYearly, setIsYearly] = useState(false);
   const [currency, setCurrency] = useState<Currency>("IDR");
@@ -132,6 +170,10 @@ export function SubscriptionInfo() {
     checkout(planTier, billingCycle);
   };
 
+  const isSubscriptionExpiringSoon = subscription.subscription_expires_at 
+    ? new Date(subscription.subscription_expires_at).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000
+    : false;
+
   return (
     <div className="space-y-6">
       {/* Current Plan Overview */}
@@ -154,6 +196,21 @@ export function SubscriptionInfo() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Subscription Expiry Info */}
+          {subscription.subscription_expires_at && subscription.stripe_subscription_status === "active" && (
+            <div className={`flex items-center gap-3 p-3 rounded-lg border ${
+              isSubscriptionExpiringSoon 
+                ? "bg-amber-500/10 border-amber-500/20 text-amber-700" 
+                : "bg-muted/50 border-border"
+            }`}>
+              <Calendar className={`w-4 h-4 ${isSubscriptionExpiringSoon ? "text-amber-500" : "text-primary"}`} />
+              <div className="text-sm">
+                <span className="font-medium">Subscription {isSubscriptionExpiringSoon ? "expires soon" : "active until"}: </span>
+                <span>{format(new Date(subscription.subscription_expires_at), "MMMM d, yyyy")}</span>
+              </div>
+            </div>
+          )}
+
           {/* Usage Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 rounded-lg bg-muted/50 space-y-2">
@@ -235,6 +292,87 @@ export function SubscriptionInfo() {
         </CardContent>
       </Card>
 
+      {/* Payment History & Invoices */}
+      {isSuperAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Receipt className="w-5 h-5" />
+              Payment History & Invoices
+            </CardTitle>
+            <CardDescription>View your payment transactions and download invoices</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {paymentsLoading ? (
+              <div className="flex items-center justify-center p-6">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : payments.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Receipt className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No payment history yet</p>
+                <p className="text-sm mt-1">Your payment transactions will appear here after your first subscription.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Plan</TableHead>
+                      <TableHead>Billing</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Period</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payments.map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell className="font-mono text-xs">
+                          {payment.invoice_number || payment.order_id.slice(0, 20)}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {payment.paid_at 
+                            ? format(new Date(payment.paid_at), "MMM d, yyyy")
+                            : format(new Date(payment.created_at), "MMM d, yyyy")
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {tierNames[payment.plan_tier] || payment.plan_tier}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm capitalize">
+                          {payment.billing_cycle}
+                        </TableCell>
+                        <TableCell className="font-medium text-sm">
+                          {formatPaymentAmount(payment.amount, payment.currency)}
+                        </TableCell>
+                        <TableCell>
+                          {getPaymentStatusBadge(payment.status)}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {payment.subscription_start && payment.subscription_end ? (
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {format(new Date(payment.subscription_start), "MMM d")} — {format(new Date(payment.subscription_end), "MMM d, yyyy")}
+                            </div>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Upgrade / Subscribe Section */}
       {isSuperAdmin && subscription.tier !== "enterprise" && (
         <Card>
@@ -243,10 +381,10 @@ export function SubscriptionInfo() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Zap className="w-5 h-5 text-primary" />
-                  {subscription.stripe_subscription_status ? "Upgrade Plan" : "Subscribe Now"}
+                  {subscription.stripe_subscription_status === "active" ? "Upgrade Plan" : "Subscribe Now"}
                 </CardTitle>
                 <CardDescription>
-                  {subscription.stripe_subscription_status 
+                  {subscription.stripe_subscription_status === "active"
                     ? "Unlock more features by upgrading your plan" 
                     : "Choose a plan to continue using Opsecta"}
                 </CardDescription>
@@ -291,7 +429,6 @@ export function SubscriptionInfo() {
                 const planTierIndex = tierOrder.indexOf(plan.tier);
                 const isCurrent = plan.tier === subscription.tier;
                 const isUpgrade = planTierIndex > currentTierIndex;
-                const isDowngrade = planTierIndex < currentTierIndex;
 
                 const price = currency === "IDR"
                   ? (isYearly ? plan.priceYearlyIDR : plan.priceMonthlyIDR)
@@ -337,7 +474,7 @@ export function SubscriptionInfo() {
                     </ul>
 
                     <div className="mt-5">
-                      {isCurrent && (!subscription.stripe_subscription_status || subscription.stripe_subscription_status === "trialing") ? (
+                      {isCurrent && (!subscription.stripe_subscription_status || subscription.stripe_subscription_status !== "active") ? (
                         <Button 
                           className="w-full" 
                           onClick={() => handleSubscribe(plan.tier)}
@@ -374,7 +511,7 @@ export function SubscriptionInfo() {
                           ) : (
                             <ArrowUpRight className="w-4 h-4 mr-2" />
                           )}
-                          {subscription.stripe_subscription_status ? "Upgrade Now" : "Subscribe Now"}
+                          {subscription.stripe_subscription_status === "active" ? "Upgrade Now" : "Subscribe Now"}
                         </Button>
                       ) : (
                         <Button variant="ghost" className="w-full" disabled>
