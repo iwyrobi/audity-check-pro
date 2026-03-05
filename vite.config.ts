@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "robots.txt"],
       manifest: {
-        name: "CheckMate - Inspection & Work Orders",
-        short_name: "CheckMate",
+        name: "Opsecta - Inspection & Work Orders",
+        short_name: "Opsecta",
         description: "Professional inspection checklists and work order management",
         theme_color: "#1e3a5f",
         background_color: "#0a1929",

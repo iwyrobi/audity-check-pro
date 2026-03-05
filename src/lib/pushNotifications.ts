@@ -31,7 +31,7 @@ export async function showLocalNotification(title: string, body: string, tag?: s
       body,
       icon: "/pwa-192x192.png",
       badge: "/pwa-192x192.png",
-      tag: tag || "checkmate-notification",
+      tag: tag || "opsecta-notification",
     } as NotificationOptions);
   }
 }
