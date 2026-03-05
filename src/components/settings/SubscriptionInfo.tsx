@@ -3,6 +3,8 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useCheckout } from "@/hooks/useCheckout";
 import { usePayments, Payment } from "@/hooks/usePayments";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import jsPDF from "jspdf";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -110,7 +112,7 @@ export function SubscriptionInfo() {
   const { subscription, loading, storageUsagePercent, formatBytes } = useSubscription();
   const { checkout, loading: checkoutLoading } = useCheckout();
   const { payments, loading: paymentsLoading } = usePayments();
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, profile } = useAuth();
   const [isYearly, setIsYearly] = useState(false);
   const [currency, setCurrency] = useState<Currency>("IDR");
 
@@ -164,6 +166,126 @@ export function SubscriptionInfo() {
     { name: "Video Uploads", enabled: subscription.can_upload_videos, icon: Video },
     { name: "Advanced Permissions", enabled: subscription.can_use_advanced_permissions, icon: Shield },
   ];
+
+  const generateInvoicePDF = async (payment: Payment) => {
+    // Fetch organization name
+    const { data: orgData } = await supabase
+      .from("organizations")
+      .select("name, address, email, phone")
+      .eq("id", profile?.organization_id || "")
+      .single();
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("INVOICE", 14, 25);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.text("Opsecta - Inspection & Safety Platform", 14, 32);
+
+    // Invoice details (right side)
+    doc.setFontSize(10);
+    doc.setTextColor(60);
+    const rightX = pageWidth - 14;
+    doc.text(`Invoice: ${payment.invoice_number || payment.order_id}`, rightX, 20, { align: "right" });
+    doc.text(`Date: ${payment.paid_at ? format(new Date(payment.paid_at), "MMMM d, yyyy") : format(new Date(payment.created_at), "MMMM d, yyyy")}`, rightX, 26, { align: "right" });
+    doc.text(`Status: ${payment.status === "active" || payment.status === "settlement" ? "Paid" : payment.status}`, rightX, 32, { align: "right" });
+
+    // Divider
+    doc.setDrawColor(200);
+    doc.line(14, 38, pageWidth - 14, 38);
+
+    // Bill To
+    let y = 48;
+    doc.setFontSize(9);
+    doc.setTextColor(130);
+    doc.text("BILL TO", 14, y);
+    y += 6;
+    doc.setFontSize(11);
+    doc.setTextColor(40);
+    doc.setFont("helvetica", "bold");
+    doc.text(orgData?.name || "—", 14, y);
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(80);
+    if (orgData?.address) { doc.text(orgData.address, 14, y); y += 4; }
+    if (orgData?.email) { doc.text(orgData.email, 14, y); y += 4; }
+    if (orgData?.phone) { doc.text(orgData.phone, 14, y); y += 4; }
+
+    // Table header
+    y = Math.max(y + 10, 80);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(14, y - 5, pageWidth - 28, 8, "F");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(60);
+    doc.text("Description", 18, y);
+    doc.text("Billing", 100, y);
+    doc.text("Amount", rightX - 4, y, { align: "right" });
+
+    // Table row
+    y += 10;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(40);
+    doc.setFontSize(10);
+    const planName = tierNames[payment.plan_tier] || payment.plan_tier;
+    doc.text(`${planName} Plan Subscription`, 18, y);
+    doc.text(payment.billing_cycle.charAt(0).toUpperCase() + payment.billing_cycle.slice(1), 100, y);
+    doc.setFont("helvetica", "bold");
+    doc.text(formatPaymentAmount(payment.amount, payment.currency), rightX - 4, y, { align: "right" });
+
+    // Subscription period
+    if (payment.subscription_start && payment.subscription_end) {
+      y += 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(120);
+      doc.text(
+        `Period: ${format(new Date(payment.subscription_start), "MMM d, yyyy")} — ${format(new Date(payment.subscription_end), "MMM d, yyyy")}`,
+        18, y
+      );
+    }
+
+    // Total
+    y += 14;
+    doc.setDrawColor(200);
+    doc.line(100, y - 4, pageWidth - 14, y - 4);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(40);
+    doc.text("Total", 100, y + 2);
+    doc.text(formatPaymentAmount(payment.amount, payment.currency), rightX - 4, y + 2, { align: "right" });
+
+    // Payment method
+    if (payment.payment_method) {
+      y += 14;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100);
+      doc.text(`Payment Method: ${payment.payment_method}`, 14, y);
+    }
+    if (payment.transaction_id) {
+      y += 5;
+      doc.setFontSize(8);
+      doc.setTextColor(130);
+      doc.text(`Transaction ID: ${payment.transaction_id}`, 14, y);
+    }
+
+    // Footer
+    const footerY = doc.internal.pageSize.getHeight() - 20;
+    doc.setFontSize(8);
+    doc.setTextColor(160);
+    doc.text("Thank you for your business!", pageWidth / 2, footerY, { align: "center" });
+    doc.text("Opsecta — opsecta.com", pageWidth / 2, footerY + 5, { align: "center" });
+
+    doc.save(`Invoice-${payment.invoice_number || payment.order_id}.pdf`);
+  };
 
   const handleSubscribe = (planTier: string) => {
     const billingCycle = isYearly ? "yearly" : "monthly";
@@ -325,6 +447,7 @@ export function SubscriptionInfo() {
                       <TableHead>Amount</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Period</TableHead>
+                      <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -361,6 +484,19 @@ export function SubscriptionInfo() {
                             </div>
                           ) : (
                             "—"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {(payment.status === "active" || payment.status === "settlement") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => generateInvoicePDF(payment)}
+                              title="Download Invoice PDF"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
                           )}
                         </TableCell>
                       </TableRow>
