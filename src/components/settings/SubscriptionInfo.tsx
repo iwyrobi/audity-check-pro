@@ -486,6 +486,19 @@ export function SubscriptionInfo() {
                             "—"
                           )}
                         </TableCell>
+                        <TableCell>
+                          {(payment.status === "active" || payment.status === "settlement") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => generateInvoicePDF(payment)}
+                              title="Download Invoice PDF"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
