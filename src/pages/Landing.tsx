@@ -142,7 +142,7 @@ export default function Landing() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 text-center">
           <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm">
             <Zap className="w-3.5 h-3.5 mr-1.5" />
-            Trusted by teams worldwide
+            Start your 30-day free trial today
           </Badge>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground tracking-tight leading-tight max-w-4xl mx-auto">
             Streamline Your{" "}
@@ -152,6 +152,7 @@ export default function Landing() {
           <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             The all-in-one platform for managing checklists, inspections, work
             orders, and compliance — built for modern operational teams.
+            Try it free for 30 days, no credit card required.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <Button
@@ -206,7 +207,7 @@ export default function Landing() {
               Simple, transparent pricing
             </h2>
             <p className="mt-4 text-lg text-muted-foreground max-w-xl mx-auto">
-              Choose the plan that fits your team. No hidden fees.
+              Choose the plan that fits your team. All plans include a 30-day free trial. No credit card required.
             </p>
 
             {/* Toggle */}
@@ -295,6 +296,12 @@ export default function Landing() {
                   })}
                 </ul>
 
+                {plan.tier !== "enterprise" && (
+                  <p className="text-xs text-muted-foreground text-center mb-3">
+                    30-day free trial · No credit card required
+                  </p>
+                )}
+
                 <Button
                   className="w-full"
                   variant={plan.highlight ? "default" : "outline"}
@@ -326,7 +333,7 @@ export default function Landing() {
             {[
               {
                 q: "Can I try before I buy?",
-                a: "Yes! All plans include a free trial period. No credit card required to get started.",
+                a: "Yes! All plans include a 30-day free trial. No credit card required to get started.",
               },
               {
                 q: "Can I upgrade or downgrade anytime?",
