@@ -141,8 +141,10 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <img src="/opsecta-logo.png" alt="Opsecta" className="h-12 object-contain" />
+          <div className="flex justify-center mb-2">
+            <div className="h-20 w-20 overflow-hidden flex items-center justify-center">
+              <img src="/opsecta-logo.png" alt="Opsecta" className="scale-[3.5]" />
+            </div>
           </div>
           <CardTitle className="text-2xl">Opsecta</CardTitle>
           <CardDescription>Inspection & Work Order Management</CardDescription>
