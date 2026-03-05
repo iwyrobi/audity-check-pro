@@ -447,7 +447,7 @@ export function SubscriptionInfo() {
                       <TableHead>Amount</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Period</TableHead>
-                    </TableRow>
+                      <TableHead className="w-10"></TableHead>
                   </TableHeader>
                   <TableBody>
                     {payments.map((payment) => (
