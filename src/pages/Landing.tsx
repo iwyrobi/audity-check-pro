@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCheckout } from "@/hooks/useCheckout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -117,6 +118,9 @@ export default function Landing() {
   const [currency, setCurrency] = useState<Currency>("IDR");
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { checkout, loading: checkoutLoading } = useCheckout({
+    onSuccess: () => navigate("/dashboard"),
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -357,16 +361,21 @@ export default function Landing() {
                   className="w-full"
                   variant={plan.highlight ? "default" : "outline"}
                   size="lg"
+                  disabled={checkoutLoading && plan.tier !== "enterprise"}
                   onClick={() => {
                     if (plan.tier === "enterprise") {
                       window.location.href = "mailto:sales@opsecta.com?subject=Business Plan Inquiry";
+                    } else if (user) {
+                      checkout(plan.tier, isYearly ? "yearly" : "monthly");
                     } else {
                       navigate("/register");
                     }
                   }}
                 >
-                  {plan.cta}
-                  <ChevronRight className="w-4 h-4 ml-1" />
+                  {user && plan.tier !== "enterprise"
+                    ? checkoutLoading ? "Processing..." : "Subscribe Now"
+                    : plan.cta}
+                  {!checkoutLoading && <ChevronRight className="w-4 h-4 ml-1" />}
                 </Button>
               </div>
             ))}
@@ -392,7 +401,7 @@ export default function Landing() {
               },
               {
                 q: "What payment methods do you accept?",
-                a: "We accept all major credit cards and bank transfers for annual plans.",
+                a: "We accept credit/debit cards, bank transfers, GoPay, ShopeePay, and other e-wallets via Midtrans — Indonesia's leading payment gateway.",
               },
               {
                 q: "Is my data secure?",
