@@ -79,6 +79,7 @@ export default function Register() {
           password,
           full_name: fullName.trim(),
           organization_name: orgName.trim(),
+          plan_tier: plan,
         },
       });
 
