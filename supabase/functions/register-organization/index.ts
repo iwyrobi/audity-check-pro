@@ -12,6 +12,7 @@ interface RegisterRequest {
   password: string;
   full_name: string;
   organization_name: string;
+  plan_tier?: "starter" | "professional" | "enterprise";
 }
 
 serve(async (req: Request) => {
@@ -27,7 +28,7 @@ serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const { email, password, full_name, organization_name }: RegisterRequest =
+    const { email, password, full_name, organization_name, plan_tier = "starter" }: RegisterRequest =
       await req.json();
 
     // Validate inputs
@@ -39,6 +40,17 @@ serve(async (req: Request) => {
     }
     if (organization_name.trim().length < 2) {
       throw new Error("Organization name must be at least 2 characters");
+    }
+
+    // Check if email already exists
+    const { data: existingUsers } = await adminClient.auth.admin.listUsers();
+    const emailExists = existingUsers?.users?.some(
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
+    );
+    if (emailExists) {
+      throw new Error(
+        `An account with email "${email}" already exists. Please sign in instead, or use a different email address to register a new organization.`
+      );
     }
 
     // Create slug from org name
@@ -58,6 +70,18 @@ serve(async (req: Request) => {
       ? `${slug}-${Date.now().toString(36)}`
       : slug;
 
+    // Resolve plan ID based on tier
+    const { data: planData, error: planError } = await adminClient
+      .from("subscription_plans")
+      .select("id")
+      .eq("tier", plan_tier)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    // Fallback to starter plan ID if not found
+    const starterPlanId = "fc1c42ee-9485-41c1-aab7-ff4ad0de36bd";
+    const resolvedPlanId = planData?.id || starterPlanId;
+
     // 1. Create the user
     const { data: newUser, error: createError } =
       await adminClient.auth.admin.createUser({
@@ -68,6 +92,15 @@ serve(async (req: Request) => {
       });
 
     if (createError) {
+      if (
+        createError.message.includes("already been registered") ||
+        createError.message.includes("already registered") ||
+        createError.message.includes("already exists")
+      ) {
+        throw new Error(
+          `An account with email "${email}" already exists. Please sign in instead, or use a different email address to register a new organization.`
+        );
+      }
       throw new Error(createError.message);
     }
     if (!newUser.user) {
@@ -76,8 +109,7 @@ serve(async (req: Request) => {
 
     const userId = newUser.user.id;
 
-    // 2. Create the organization with starter plan and 30-day trial
-    const starterPlanId = "fc1c42ee-9485-41c1-aab7-ff4ad0de36bd";
+    // 2. Create the organization — always start with a trial, payment upgrades later
     const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     const { data: org, error: orgError } = await adminClient
@@ -85,7 +117,7 @@ serve(async (req: Request) => {
       .insert({
         name: organization_name.trim(),
         slug: finalSlug,
-        subscription_plan_id: starterPlanId,
+        subscription_plan_id: resolvedPlanId,
         trial_ends_at: trialEndsAt,
       })
       .select("id")
@@ -137,6 +169,8 @@ serve(async (req: Request) => {
         success: true,
         user_id: userId,
         organization_id: org.id,
+        plan_tier,
+        requires_payment: plan_tier !== "starter",
       }),
       {
         status: 200,
