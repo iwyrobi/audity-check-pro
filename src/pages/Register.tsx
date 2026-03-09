@@ -86,22 +86,35 @@ export default function Register() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      // Sign in the newly created user
       const { error: signInError } = await signIn(email, password);
       if (signInError) {
-        if (plan !== "starter" && plan !== "enterprise") {
-          toast({
-            title: "Account created!",
-            description: "Please complete your subscription payment to continue.",
-          });
-          checkout(plan, billingCycle);
-        } else {
-          toast({
-            title: "Welcome!",
-            description: "Your organization has been created. You can now set up departments and invite users from Settings.",
-          });
-          navigate("/dashboard");
-        }
+        toast({
+          title: "Account created but sign-in failed",
+          description: "Please go to the login page and sign in with your credentials.",
+          variant: "destructive",
+        });
+        navigate("/login");
+        return;
       }
+
+      // If plan requires payment, trigger checkout immediately
+      if (data?.requires_payment) {
+        toast({
+          title: "Account created!",
+          description: "Please complete your subscription payment to activate your plan.",
+        });
+        // Small delay to let auth state settle before checkout
+        setTimeout(() => checkout(plan, billingCycle), 1500);
+        return;
+      }
+
+      // Starter plan — go straight to dashboard
+      toast({
+        title: "Welcome!",
+        description: "Your organization has been created. You can now set up departments and invite users from Settings.",
+      });
+      navigate("/dashboard");
     } catch (error: any) {
       let message = error.message || "Registration failed";
       if (message.includes("already been registered") || message.includes("already registered")) {
