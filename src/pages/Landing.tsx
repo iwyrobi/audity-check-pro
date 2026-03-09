@@ -351,7 +351,7 @@ export default function Landing() {
                   })}
                 </ul>
 
-                {plan.tier !== "enterprise" && (
+                {plan.tier === "starter" && (
                   <p className="text-xs text-muted-foreground text-center mb-3">
                     30-day free trial · No credit card required
                   </p>
