@@ -82,14 +82,29 @@ export function useCheckout(options?: UseCheckoutOptions) {
       }
 
       window.snap.pay(token, {
-        onSuccess: (result) => {
+        onSuccess: async (result: any) => {
           console.log("Payment success:", result);
           toast.success("Payment successful! Your plan has been upgraded.");
+          // Verify payment on backend to update org subscription status
+          try {
+            await supabase.functions.invoke("verify-payment", {
+              body: { order_id: result?.order_id || data?.order_id },
+            });
+          } catch (verifyErr) {
+            console.error("Post-payment verification error:", verifyErr);
+          }
           options?.onSuccess?.();
         },
-        onPending: (result) => {
+        onPending: async (result: any) => {
           console.log("Payment pending:", result);
           toast.info("Payment is being processed. We'll update your plan once confirmed.");
+          try {
+            await supabase.functions.invoke("verify-payment", {
+              body: { order_id: result?.order_id || data?.order_id },
+            });
+          } catch (verifyErr) {
+            console.error("Post-payment verification error:", verifyErr);
+          }
           options?.onPending?.();
         },
         onError: (result) => {
