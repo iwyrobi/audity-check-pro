@@ -58,7 +58,7 @@ const plans = [
       videoUploads: false,
       advancedPermissions: false,
     },
-    cta: "Get Started",
+    cta: "Start Free Trial",
     highlight: false,
   },
   {
