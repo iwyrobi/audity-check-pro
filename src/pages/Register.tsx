@@ -170,7 +170,7 @@ export default function Register() {
                 </Link>
               </label>
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading || !acceptedTerms}>
+            <Button type="submit" className="w-full" disabled={isLoading || checkoutLoading || !acceptedTerms}>
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
