@@ -23,6 +23,7 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState(false);
 
   const { signIn, user, loading } = useAuth();
   const navigate = useNavigate();
