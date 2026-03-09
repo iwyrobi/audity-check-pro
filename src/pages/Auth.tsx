@@ -94,7 +94,8 @@ export default function Auth() {
           email,
           password,
           full_name: fullName.trim(),
-          organization_name: orgName.trim()
+          organization_name: orgName.trim(),
+          plan_tier: "starter" // Always starter from general Auth page
         }
       });
 

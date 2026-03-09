@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCheckout } from "@/hooks/useCheckout";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,15 @@ export default function Register() {
 
   const { signIn, user, loading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { checkout, loading: checkoutLoading } = useCheckout({
+    onSuccess: () => navigate("/dashboard"),
+    onPending: () => navigate("/dashboard"),
+  });
+
+  const plan = searchParams.get("plan") || "starter";
+  const billingCycle = (searchParams.get("billing") as "monthly" | "yearly") || "monthly";
 
   useEffect(() => {
     if (!loading && user) {
@@ -70,6 +79,7 @@ export default function Register() {
           password,
           full_name: fullName.trim(),
           organization_name: orgName.trim(),
+          plan_tier: plan,
         },
       });
 
@@ -78,16 +88,19 @@ export default function Register() {
 
       const { error: signInError } = await signIn(email, password);
       if (signInError) {
-        toast({
-          title: "Account created!",
-          description: "Your organization has been set up. Please sign in.",
-        });
-        navigate("/login");
-      } else {
-        toast({
-          title: "Welcome!",
-          description: "Your organization has been created. You can now set up departments and invite users from Settings.",
-        });
+        if (plan !== "starter" && plan !== "enterprise") {
+          toast({
+            title: "Account created!",
+            description: "Please complete your subscription payment to continue.",
+          });
+          checkout(plan, billingCycle);
+        } else {
+          toast({
+            title: "Welcome!",
+            description: "Your organization has been created. You can now set up departments and invite users from Settings.",
+          });
+          navigate("/dashboard");
+        }
       }
     } catch (error: any) {
       let message = error.message || "Registration failed";
@@ -157,7 +170,7 @@ export default function Register() {
                 </Link>
               </label>
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading || !acceptedTerms}>
+            <Button type="submit" className="w-full" disabled={isLoading || checkoutLoading || !acceptedTerms}>
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
