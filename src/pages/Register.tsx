@@ -88,16 +88,19 @@ export default function Register() {
 
       const { error: signInError } = await signIn(email, password);
       if (signInError) {
-        toast({
-          title: "Account created!",
-          description: "Your organization has been set up. Please sign in.",
-        });
-        navigate("/login");
-      } else {
-        toast({
-          title: "Welcome!",
-          description: "Your organization has been created. You can now set up departments and invite users from Settings.",
-        });
+        if (plan !== "starter" && plan !== "enterprise") {
+          toast({
+            title: "Account created!",
+            description: "Please complete your subscription payment to continue.",
+          });
+          checkout(plan, billingCycle);
+        } else {
+          toast({
+            title: "Welcome!",
+            description: "Your organization has been created. You can now set up departments and invite users from Settings.",
+          });
+          navigate("/dashboard");
+        }
       }
     } catch (error: any) {
       let message = error.message || "Registration failed";
