@@ -142,10 +142,29 @@ serve(async (req: Request) => {
       console.error("Failed to add org member:", memberError);
     }
 
-    // 4. Update profile with organization_id
+    // 4. Create default "Admin" department
+    const { data: adminDept, error: deptError } = await adminClient
+      .from("departments")
+      .insert({
+        name: "Admin",
+        description: "Default administrative department",
+        organization_id: org.id,
+      })
+      .select("id")
+      .single();
+
+    if (deptError) {
+      console.error("Failed to create default department:", deptError);
+    }
+
+    // 5. Update profile with organization_id and department
     await adminClient
       .from("profiles")
-      .update({ organization_id: org.id, full_name })
+      .update({
+        organization_id: org.id,
+        full_name,
+        department_id: adminDept?.id || null,
+      })
       .eq("user_id", userId);
 
     // 5. Upgrade role from 'user' to 'super_admin'
