@@ -26,7 +26,15 @@ export default function Register() {
 
   const { signIn, user, loading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { checkout, loading: checkoutLoading } = useCheckout({
+    onSuccess: () => navigate("/dashboard"),
+    onPending: () => navigate("/dashboard"),
+  });
+
+  const plan = searchParams.get("plan") || "starter";
+  const billingCycle = (searchParams.get("billing") as "monthly" | "yearly") || "monthly";
 
   useEffect(() => {
     if (!loading && user) {
