@@ -101,6 +101,7 @@ export default function Register() {
 
       // If plan requires payment, trigger checkout immediately
       if (data?.requires_payment) {
+        setPendingCheckout(true);
         toast({
           title: "Account created!",
           description: "Please complete your subscription payment to activate your plan.",
