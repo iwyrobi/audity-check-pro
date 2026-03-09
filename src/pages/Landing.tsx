@@ -368,7 +368,7 @@ export default function Landing() {
                     } else if (user) {
                       checkout(plan.tier, isYearly ? "yearly" : "monthly");
                     } else {
-                      navigate("/register");
+                      navigate(`/register?plan=${plan.tier}&billing=${isYearly ? "yearly" : "monthly"}`);
                     }
                   }}
                 >
