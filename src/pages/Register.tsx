@@ -38,10 +38,10 @@ export default function Register() {
   const billingCycle = (searchParams.get("billing") as "monthly" | "yearly") || "monthly";
 
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && user && !pendingCheckout) {
       navigate("/dashboard");
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, pendingCheckout]);
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
