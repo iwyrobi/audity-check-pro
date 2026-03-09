@@ -58,7 +58,7 @@ const plans = [
       videoUploads: false,
       advancedPermissions: false,
     },
-    cta: "Get Started",
+    cta: "Start Free Trial",
     highlight: false,
   },
   {
@@ -78,7 +78,7 @@ const plans = [
       videoUploads: true,
       advancedPermissions: false,
     },
-    cta: "Start Free Trial",
+    cta: "Subscribe Now",
     highlight: true,
   },
   {
@@ -351,7 +351,7 @@ export default function Landing() {
                   })}
                 </ul>
 
-                {plan.tier !== "enterprise" && (
+                {plan.tier === "starter" && (
                   <p className="text-xs text-muted-foreground text-center mb-3">
                     30-day free trial · No credit card required
                   </p>
