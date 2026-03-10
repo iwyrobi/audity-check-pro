@@ -18,6 +18,10 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
+      devOptions: {
+        enabled: false,
+      },
+      selfDestroying: mode !== "production",
       includeAssets: ["favicon.ico", "robots.txt"],
       manifest: {
         name: "Opsecta - Inspection & Work Orders",
