@@ -7,6 +7,8 @@ import { CompanySettings } from "@/components/settings/CompanySettings";
 import { SubscriptionInfo } from "@/components/settings/SubscriptionInfo";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const settingsSections = [
   {
@@ -14,41 +16,63 @@ const settingsSections = [
     title: "Profile Settings",
     description: "Manage your personal information",
     icon: User,
+    action: "navigate" as const,
+    target: "/profile?tab=profile",
   },
   {
     id: "notifications",
     title: "Notifications",
     description: "Configure alert preferences",
     icon: Bell,
+    action: "navigate" as const,
+    target: "/profile?tab=notifications",
   },
   {
     id: "security",
     title: "Security",
     description: "Password and authentication",
     icon: Shield,
+    action: "navigate" as const,
+    target: "/profile?tab=security",
   },
   {
     id: "data",
     title: "Data Management",
     description: "Export and backup options",
     icon: Database,
+    action: "toast" as const,
+    target: "Data export features coming soon!",
   },
   {
     id: "appearance",
     title: "Appearance",
     description: "Theme and display settings",
     icon: Palette,
+    action: "toast" as const,
+    target: "Theme customization coming soon!",
   },
   {
     id: "language",
     title: "Language & Region",
     description: "Localization preferences",
     icon: Globe,
+    action: "toast" as const,
+    target: "Language settings coming soon!",
   },
 ];
 
 export default function Settings() {
   const { isSuperAdmin } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleCardClick = (section: typeof settingsSections[number]) => {
+    if (section.action === "navigate") {
+      navigate(section.target);
+    } else {
+      toast({ title: section.title, description: section.target });
+    }
+  };
 
   return (
     <AppLayout title="Settings">
@@ -68,8 +92,12 @@ export default function Settings() {
               {settingsSections.map((section, index) => (
                 <div
                   key={section.id}
-                  className="action-card animate-slide-up"
+                  className="action-card animate-slide-up cursor-pointer hover:border-primary/30 transition-colors"
                   style={{ animationDelay: `${index * 50}ms` }}
+                  onClick={() => handleCardClick(section)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && handleCardClick(section)}
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
