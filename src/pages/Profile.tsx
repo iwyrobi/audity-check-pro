@@ -504,7 +504,7 @@ export default function Profile() {
             <CardDescription>Manage your profile and security settings</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="profile">
+            <Tabs defaultValue={initialTab}>
               <TabsList className="grid w-full grid-cols-3 max-w-lg">
                 <TabsTrigger value="profile">
                   <User className="w-4 h-4 mr-2" />
