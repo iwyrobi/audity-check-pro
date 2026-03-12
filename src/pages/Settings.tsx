@@ -1,5 +1,6 @@
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { User, Bell, Shield, Database, Palette, Globe, Building, CreditCard } from "lucide-react";
+import { User, Bell, Shield, Palette, Building, CreditCard, Sun, Moon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { DepartmentManagement } from "@/components/settings/DepartmentManagement";
 import { UserManagement } from "@/components/settings/UserManagement";
@@ -36,42 +37,57 @@ const settingsSections = [
     target: "/profile?tab=security",
   },
   {
-    id: "data",
-    title: "Data Management",
-    description: "Export and backup options",
-    icon: Database,
-    action: "toast" as const,
-    target: "Data export features coming soon!",
-  },
-  {
     id: "appearance",
     title: "Appearance",
     description: "Theme and display settings",
     icon: Palette,
-    action: "toast" as const,
-    target: "Theme customization coming soon!",
-  },
-  {
-    id: "language",
-    title: "Language & Region",
-    description: "Localization preferences",
-    icon: Globe,
-    action: "toast" as const,
-    target: "Language settings coming soon!",
+    action: "inline" as const,
+    target: "",
   },
 ];
+
+function useDarkMode() {
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return document.documentElement.classList.contains("dark");
+  });
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  }, [isDark]);
+
+  // Init from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("theme");
+    if (saved === "dark") {
+      setIsDark(true);
+    } else if (saved === "light") {
+      setIsDark(false);
+    } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      setIsDark(true);
+    }
+  }, []);
+
+  return [isDark, setIsDark] as const;
+}
 
 export default function Settings() {
   const { isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isDark, setIsDark] = useDarkMode();
 
   const handleCardClick = (section: typeof settingsSections[number]) => {
     if (section.action === "navigate") {
       navigate(section.target);
-    } else {
-      toast({ title: section.title, description: section.target });
     }
+    // "inline" action cards don't navigate — they have inline controls
   };
 
   return (
@@ -92,20 +108,41 @@ export default function Settings() {
               {settingsSections.map((section, index) => (
                 <div
                   key={section.id}
-                  className="action-card animate-slide-up cursor-pointer hover:border-primary/30 transition-colors"
+                  className={`action-card animate-slide-up transition-colors ${
+                    section.action === "navigate" ? "cursor-pointer hover:border-primary/30" : ""
+                  }`}
                   style={{ animationDelay: `${index * 50}ms` }}
                   onClick={() => handleCardClick(section)}
-                  role="button"
-                  tabIndex={0}
+                  role={section.action === "navigate" ? "button" : undefined}
+                  tabIndex={section.action === "navigate" ? 0 : undefined}
                   onKeyDown={(e) => e.key === "Enter" && handleCardClick(section)}
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                       <section.icon className="w-5 h-5 text-primary" />
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <h3 className="font-semibold">{section.title}</h3>
                       <p className="text-sm text-muted-foreground">{section.description}</p>
+
+                      {/* Inline dark mode toggle for Appearance card */}
+                      {section.id === "appearance" && (
+                        <div className="mt-3 flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                          <div className="flex items-center gap-2">
+                            {isDark ? (
+                              <Moon className="w-4 h-4 text-muted-foreground" />
+                            ) : (
+                              <Sun className="w-4 h-4 text-muted-foreground" />
+                            )}
+                            <span className="text-sm font-medium">Dark Mode</span>
+                          </div>
+                          <Switch
+                            checked={isDark}
+                            onCheckedChange={setIsDark}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
