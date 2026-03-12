@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MIDTRANS_URL = "https://app.midtrans.com/snap/v1/transactions";
+const MIDTRANS_SANDBOX_URL = "https://app.sandbox.midtrans.com/snap/v1/transactions";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -113,7 +113,7 @@ serve(async (req) => {
 
     // Call Midtrans Snap API
     const authString = btoa(MIDTRANS_SERVER_KEY + ":");
-    const midtransResponse = await fetch(MIDTRANS_URL, {
+    const midtransResponse = await fetch(MIDTRANS_SANDBOX_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

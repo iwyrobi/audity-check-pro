@@ -41,7 +41,7 @@ async function loadSnapJs(): Promise<void> {
 
     return new Promise<void>((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = "https://app.midtrans.com/snap/snap.js";
+      script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
       script.setAttribute("data-client-key", data.client_key);
       script.onload = () => {
         snapLoaded = true;
