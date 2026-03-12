@@ -63,6 +63,16 @@ const settingsSections = [
 
 export default function Settings() {
   const { isSuperAdmin } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleCardClick = (section: typeof settingsSections[number]) => {
+    if (section.action === "navigate") {
+      navigate(section.target);
+    } else {
+      toast({ title: section.title, description: section.target });
+    }
+  };
 
   return (
     <AppLayout title="Settings">
@@ -82,8 +92,12 @@ export default function Settings() {
               {settingsSections.map((section, index) => (
                 <div
                   key={section.id}
-                  className="action-card animate-slide-up"
+                  className="action-card animate-slide-up cursor-pointer hover:border-primary/30 transition-colors"
                   style={{ animationDelay: `${index * 50}ms` }}
+                  onClick={() => handleCardClick(section)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && handleCardClick(section)}
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
