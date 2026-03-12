@@ -50,6 +50,8 @@ interface UserStats {
 }
 
 export default function Profile() {
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "profile";
   const { user, profile, department, roles, isAdmin, isDepartmentHead, isSuperAdmin } = useAuth();
   const { toast } = useToast();
   const { subscription, loading: subscriptionLoading, storageUsagePercent, formatBytes, hasFeature } = useSubscription();
