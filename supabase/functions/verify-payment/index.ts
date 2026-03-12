@@ -57,7 +57,7 @@ serve(async (req) => {
     // Check Midtrans transaction status
     const authString = btoa(MIDTRANS_SERVER_KEY + ":");
     const midtransResponse = await fetch(
-      `https://api.sandbox.midtrans.com/v2/${order_id}/status`,
+      `https://api.midtrans.com/v2/${order_id}/status`,
       {
         headers: {
           "Content-Type": "application/json",
