@@ -113,7 +113,7 @@ serve(async (req) => {
 
     // Call Midtrans Snap API
     const authString = btoa(MIDTRANS_SERVER_KEY + ":");
-    const midtransResponse = await fetch(MIDTRANS_SANDBOX_URL, {
+    const midtransResponse = await fetch(MIDTRANS_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
