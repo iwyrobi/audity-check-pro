@@ -94,7 +94,7 @@ export default function Settings() {
     <AppLayout title="Settings">
       <div className="max-w-4xl space-y-6">
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 w-full overflow-x-auto flex justify-start">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="subscription">Subscription</TabsTrigger>
             {isSuperAdmin && <TabsTrigger value="company">Company</TabsTrigger>}
