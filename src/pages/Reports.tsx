@@ -426,8 +426,8 @@ export default function Reports() {
     <AppLayout title="Reports">
       <div className="space-y-6">
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3 justify-between">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Date Range Filter */}
             <Select value={selectedDateRange} onValueChange={setSelectedDateRange}>
               <SelectTrigger className="w-[150px] bg-background">
@@ -443,65 +443,68 @@ export default function Reports() {
               </SelectContent>
             </Select>
 
-            {/* Start Date Picker */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[130px] justify-start text-left font-normal",
-                    !customStartDate && "text-muted-foreground"
-                  )}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {customStartDate ? format(customStartDate, "MMM d, yyyy") : "Start"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={customStartDate}
-                  onSelect={(date) => {
-                    setCustomStartDate(date);
-                    if (date) setSelectedDateRange("custom");
-                  }}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-            <span className="text-muted-foreground">-</span>
-            {/* End Date Picker */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[130px] justify-start text-left font-normal",
-                    !customEndDate && "text-muted-foreground"
-                  )}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {customEndDate ? format(customEndDate, "MMM d, yyyy") : "End"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={customEndDate}
-                  onSelect={(date) => {
-                    setCustomEndDate(date);
-                    if (date) setSelectedDateRange("custom");
-                  }}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
+            {/* Custom Date Pickers - only show when custom is selected */}
+            {selectedDateRange === "custom" && (
+              <>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[130px] justify-start text-left font-normal",
+                        !customStartDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {customStartDate ? format(customStartDate, "MMM d, yyyy") : "Start"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={customStartDate}
+                      onSelect={(date) => {
+                        setCustomStartDate(date);
+                        if (date) setSelectedDateRange("custom");
+                      }}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-muted-foreground">-</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[130px] justify-start text-left font-normal",
+                        !customEndDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {customEndDate ? format(customEndDate, "MMM d, yyyy") : "End"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={customEndDate}
+                      onSelect={(date) => {
+                        setCustomEndDate(date);
+                        if (date) setSelectedDateRange("custom");
+                      }}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </>
+            )}
 
             {isAdmin && (
               <Select value={selectedDepartmentId} onValueChange={setSelectedDepartmentId}>
-                <SelectTrigger className="w-[180px] bg-background">
+                <SelectTrigger className="w-full sm:w-[180px] bg-background">
                   <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover">
@@ -514,27 +517,27 @@ export default function Reports() {
                 </SelectContent>
               </Select>
             )}
-          </div>
 
-          {/* Export Button */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button disabled={exporting} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-                Export Report
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-popover">
-              <DropdownMenuItem onClick={handleExportPDF} className="cursor-pointer">
-                <FileText className="w-4 h-4 mr-2" />
-                Export to PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportExcel} className="cursor-pointer">
-                <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Export to Excel
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            {/* Export Button */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button disabled={exporting} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                  {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover">
+                <DropdownMenuItem onClick={handleExportPDF} className="cursor-pointer">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export to PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportExcel} className="cursor-pointer">
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  Export to Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Summary Stats */}

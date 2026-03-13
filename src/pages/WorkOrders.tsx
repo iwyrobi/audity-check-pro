@@ -208,8 +208,8 @@ export default function WorkOrders() {
         </div>
 
         {/* Header Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 justify-between">
             <div className="relative flex-1 sm:flex-none">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -219,6 +219,15 @@ export default function WorkOrders() {
                 className="pl-9 w-full sm:w-64"
               />
             </div>
+            <Button 
+              className="bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto"
+              onClick={() => setIsCreateModalOpen(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Work Order
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             {/* Date Range Filter */}
             <Select value={selectedDateRange} onValueChange={setSelectedDateRange}>
               <SelectTrigger className="w-[140px] bg-secondary border-0">
@@ -234,154 +243,151 @@ export default function WorkOrders() {
               </SelectContent>
             </Select>
             
-            {/* Start Date Picker */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[130px] justify-start text-left font-normal",
-                    !customStartDate && "text-muted-foreground"
-                  )}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {customStartDate ? format(customStartDate, "MMM d, yyyy") : "Start"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={customStartDate}
-                  onSelect={(date) => {
-                    setCustomStartDate(date);
-                    if (date) setSelectedDateRange("custom");
-                  }}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-            <span className="text-muted-foreground">-</span>
-            {/* End Date Picker */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[130px] justify-start text-left font-normal",
-                    !customEndDate && "text-muted-foreground"
-                  )}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {customEndDate ? format(customEndDate, "MMM d, yyyy") : "End"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={customEndDate}
-                  onSelect={(date) => {
-                    setCustomEndDate(date);
-                    if (date) setSelectedDateRange("custom");
-                  }}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
+            {/* Custom Date Pickers - only show when custom is selected */}
+            {selectedDateRange === "custom" && (
+              <>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[130px] justify-start text-left font-normal",
+                        !customStartDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {customStartDate ? format(customStartDate, "MMM d, yyyy") : "Start"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={customStartDate}
+                      onSelect={(date) => {
+                        setCustomStartDate(date);
+                        if (date) setSelectedDateRange("custom");
+                      }}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-muted-foreground">-</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[130px] justify-start text-left font-normal",
+                        !customEndDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {customEndDate ? format(customEndDate, "MMM d, yyyy") : "End"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={customEndDate}
+                      onSelect={(date) => {
+                        setCustomEndDate(date);
+                        if (date) setSelectedDateRange("custom");
+                      }}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </>
+            )}
           </div>
-          <Button 
-            className="bg-accent text-accent-foreground hover:bg-accent/90"
-            onClick={() => setIsCreateModalOpen(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create Work Order
-          </Button>
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex gap-2 overflow-x-auto">
-              {statusFilters.map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setSelectedStatus(status)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                    selectedStatus === status
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-                >
-                  {status}
-                </button>
-              ))}
-            </div>
-            <select
-              value={selectedPriority}
-              onChange={(e) => setSelectedPriority(e.target.value)}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-secondary text-secondary-foreground border-0 cursor-pointer"
-            >
-              {priorityFilters.map((priority) => (
-                <option key={priority} value={priority}>
-                  {priority}
-                </option>
-              ))}
-            </select>
-
-            
-            {/* My Work Orders Toggle */}
-            <button
-              onClick={() => setShowMyWorkOrders(!showMyWorkOrders)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                showMyWorkOrders
-                  ? "bg-accent text-accent-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-              }`}
-            >
-              <User className="w-4 h-4" />
-              My WOs ({myWorkOrdersCount})
-            </button>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2 overflow-x-auto">
+            {statusFilters.map((status) => (
+              <button
+                key={status}
+                onClick={() => setSelectedStatus(status)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                  selectedStatus === status
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+              >
+                {status}
+              </button>
+            ))}
           </div>
-          
-          {/* Sort & View Toggle */}
-          <div className="flex items-center gap-2">
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[150px] bg-secondary border-0">
-                <ArrowUpDown className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sortOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={selectedPriority}
+                onChange={(e) => setSelectedPriority(e.target.value)}
+                className="px-3 py-2 rounded-lg text-sm font-medium bg-secondary text-secondary-foreground border-0 cursor-pointer"
+              >
+                {priorityFilters.map((priority) => (
+                  <option key={priority} value={priority}>
+                    {priority}
+                  </option>
                 ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
+              </select>
+
+              {/* My Work Orders Toggle */}
               <button
-                onClick={() => setViewMode("grid")}
-                className={`p-2 rounded-md transition-colors ${
-                  viewMode === "grid"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                onClick={() => setShowMyWorkOrders(!showMyWorkOrders)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                  showMyWorkOrders
+                    ? "bg-accent text-accent-foreground"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
-                title="Grid view"
               >
-                <LayoutGrid className="w-4 h-4" />
+                <User className="w-4 h-4" />
+                My WOs ({myWorkOrdersCount})
               </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-2 rounded-md transition-colors ${
-                  viewMode === "list"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                title="List view"
-              >
-                <List className="w-4 h-4" />
-              </button>
+            </div>
+            
+            {/* Sort & View Toggle */}
+            <div className="flex items-center gap-2">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[140px] bg-secondary border-0">
+                  <ArrowUpDown className="w-4 h-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 rounded-md transition-colors ${
+                    viewMode === "grid"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Grid view"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-2 rounded-md transition-colors ${
+                    viewMode === "list"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="List view"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
