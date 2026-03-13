@@ -171,9 +171,9 @@ export function InspectionRunner({
                         isDefect && "bg-destructive/5"
                       )}
                     >
-                      <div className="flex items-start gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
                         {/* Question Number & Text */}
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-start gap-2">
                             <span className="text-sm font-medium text-muted-foreground">
                               {qIndex + 1}.
@@ -190,7 +190,7 @@ export function InspectionRunner({
                         </div>
 
                         {/* Answer Controls */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 ml-6 sm:ml-0 flex-wrap sm:flex-nowrap">
                           {question.type === "yes-no" && (
                             <div className="flex items-center gap-1">
                               <button
